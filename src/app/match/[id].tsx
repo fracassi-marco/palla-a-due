@@ -6,6 +6,7 @@ import { Roster, StatLine } from '../../domain/entities';
 import { PlayerRow } from '../../presentation/components/PlayerRow';
 import { Empty, ErrorView, Loading } from '../../presentation/components/StateViews';
 import { TeamLogo } from '../../presentation/components/TeamLogo';
+import { useOpenTeam } from '../../presentation/hooks/useOpenTeam';
 import { useAsync } from '../../presentation/hooks/useAsync';
 import { colors, fonts, radius } from '../../presentation/theme';
 import { formatDayMonth, formatTime, formatWeekday } from '../../presentation/theme/format';
@@ -15,6 +16,7 @@ type Params = Record<'id' | 'homeId' | 'awayId' | 'homeName' | 'awayName' | 'hom
 export default function MatchScreen() {
   const p = useLocalSearchParams<Params>();
   const router = useRouter();
+  const openTeam = useOpenTeam();
   const [side, setSide] = useState<'home' | 'away'>('home');
 
   const teamId = Number(side === 'home' ? p.homeId : p.awayId);
@@ -39,10 +41,10 @@ export default function MatchScreen() {
   return (
     <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
       <View style={styles.scoreboard}>
-        <View style={styles.team}>
+        <Pressable style={styles.team} onPress={() => openTeam(Number(p.homeId), p.homeName, p.homeLogo || null)}>
           <TeamLogo uri={p.homeLogo || null} name={p.homeName} size={72} />
           <Text style={styles.teamName} numberOfLines={2}>{p.homeName}</Text>
-        </View>
+        </Pressable>
         <View style={styles.center}>
           {played ? (
             <Text style={styles.score}>{p.homeScore}-{p.awayScore}</Text>
@@ -52,10 +54,10 @@ export default function MatchScreen() {
           <Text style={styles.date}>{formatWeekday(startsAt)} {formatDayMonth(startsAt)}</Text>
           <Text style={styles.time}>{formatTime(startsAt)}</Text>
         </View>
-        <View style={styles.team}>
+        <Pressable style={styles.team} onPress={() => openTeam(Number(p.awayId), p.awayName, p.awayLogo || null)}>
           <TeamLogo uri={p.awayLogo || null} name={p.awayName} size={72} />
           <Text style={styles.teamName} numberOfLines={2}>{p.awayName}</Text>
-        </View>
+        </Pressable>
       </View>
 
       <View style={styles.tabs}>

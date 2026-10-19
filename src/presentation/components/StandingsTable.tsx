@@ -1,9 +1,11 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Standing } from '../../domain/entities';
 import { colors, fonts, radius } from '../theme';
+import { useOpenTeam } from '../hooks/useOpenTeam';
 import { TeamLogo } from './TeamLogo';
 
 export function StandingsTable({ standings }: { standings: Standing[] }) {
+  const openTeam = useOpenTeam();
   return (
     <View style={styles.table}>
       <View style={[styles.row, styles.head]}>
@@ -17,7 +19,7 @@ export function StandingsTable({ standings }: { standings: Standing[] }) {
       {standings.map((s, i) => {
         const zone = s.relegation ? colors.red : s.playoffQualified ? colors.green : s.position <= 8 ? colors.orange : 'transparent';
         return (
-          <View key={s.team.id} style={[styles.row, i % 2 === 0 && styles.zebra]}>
+          <Pressable key={s.team.id} onPress={() => openTeam(s.team.id, s.team.name, s.team.logoUrl)} style={({ pressed }) => [styles.row, i % 2 === 0 && styles.zebra, pressed && styles.pressed]}>
             <View style={[styles.zone, { backgroundColor: zone }]} />
             <Text style={[styles.posText, styles.pos, s.position <= 3 && { color: colors.yellow }]}>{s.position}</Text>
             <View style={[styles.team, styles.teamCell]}>
@@ -32,7 +34,7 @@ export function StandingsTable({ standings }: { standings: Standing[] }) {
             <View style={styles.pts}>
               <Text style={styles.ptsText}>{s.points}</Text>
             </View>
-          </View>
+          </Pressable>
         );
       })}
     </View>
@@ -44,6 +46,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingRight: 10, minHeight: 50 },
   head: { backgroundColor: colors.surfaceAlt, paddingVertical: 8, minHeight: 0 },
   headText: { color: colors.textMuted, fontFamily: fonts.condensed, fontSize: 13, letterSpacing: 1 },
+  pressed: { opacity: 0.6 },
   zebra: { backgroundColor: 'rgba(255,255,255,0.03)' },
   zone: { position: 'absolute', left: 0, top: 6, bottom: 6, width: 4, borderTopRightRadius: 3, borderBottomRightRadius: 3 },
   pos: { width: 36, textAlign: 'center' },

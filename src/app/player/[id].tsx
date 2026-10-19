@@ -40,7 +40,7 @@ function Profile({ profile }: { profile: PlayerProfile }) {
         </View>
         <View style={styles.photoWrap}>
           {player.photoUrl ? (
-            <Image source={resolveImageSource(player.photoUrl)} style={styles.photo} contentFit="cover" contentPosition="top" transition={200} />
+            <Image source={resolveImageSource(player.photoUrl)} style={styles.photo} contentFit="cover" contentPosition="top" />
           ) : (
             <Ionicons name="person" size={64} color={colors.surfaceAlt} />
           )}
