@@ -2,8 +2,10 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useCases } from '../../di/container';
 import { PlayerRow } from '../../presentation/components/PlayerRow';
+import { SectionTitle } from '../../presentation/components/SectionTitle';
 import { Empty, ErrorView, Loading } from '../../presentation/components/StateViews';
 import { TeamLogo } from '../../presentation/components/TeamLogo';
+import { TeamStatsSection } from '../../presentation/components/TeamStatsSection';
 import { useAsync } from '../../presentation/hooks/useAsync';
 import { colors, fonts, radius } from '../../presentation/theme';
 
@@ -14,6 +16,7 @@ export default function TeamScreen() {
   const router = useRouter();
   const teamId = Number(p.id);
   const roster = useAsync(() => useCases.getTeamRoster.execute(teamId), [teamId]);
+  const stats = useAsync(() => useCases.getTeamStats.execute(teamId), [teamId]);
 
   return (
     <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
@@ -21,6 +24,8 @@ export default function TeamScreen() {
         <TeamLogo uri={p.logo || null} name={p.name} size={88} />
         <Text style={styles.name}>{p.name}</Text>
       </View>
+      {stats.data ? <TeamStatsSection stats={stats.data} /> : null}
+      <SectionTitle title="ROSTER" accent={colors.cyan} />
       {roster.loading ? (
         <Loading label="Carico il roster…" />
       ) : roster.error ? (

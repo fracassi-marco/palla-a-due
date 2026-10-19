@@ -191,3 +191,47 @@ export interface BoxScoreResponseDto {
     vt: { rows: BoxScoreRowDto[] | null } | null;
   } | null;
 }
+
+export interface TeamStatsRowDto {
+  points_avg: string;
+  done_fouls_avg: string;
+  shots_2p_realized_sum: number;
+  shots_2p_total_sum: number;
+  shots_3p_realized_sum: number;
+  shots_3p_total_sum: number;
+  free_throws_realized_sum: number;
+  free_throws_total_sum: number;
+  offensive_rebound_avg: string;
+  defensive_rebound_avg: string;
+  ball_stop_given_avg: string;
+  lost_balls_avg: string;
+  regain_balls_avg: string;
+  assists_avg: string;
+  rating_lega_avg: number;
+}
+
+export interface TeamRankDto {
+  pos: number;
+  avg: number;
+}
+
+export interface TeamStatsResponseDto {
+  rnk_sum: {
+    cat?: { points?: TeamRankDto; total_rebound?: TeamRankDto; assists?: TeamRankDto } | null;
+    r_s?: { pos: number; points: number; mw: number; ml: number } | null;
+  } | null;
+  stats: TeamStatsRowDto[] | null;
+}
+
+export interface TeamMatchStatsDto {
+  side: 'h' | 'v';
+  home_final_score: number | null;
+  visitor_final_score: number | null;
+  championships_match_id: number;
+  match_datetime: string;
+  opponent_name: string;
+}
+
+export interface TeamMatchesStatsResponseDto {
+  matches: TeamMatchStatsDto[] | null;
+}

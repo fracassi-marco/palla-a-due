@@ -47,6 +47,9 @@ export const defaultTtlPolicy: TtlPolicy = (path, data) => {
       return boxScoreTtl(data);
     case '/teams/get-team-roster':
       return 12 * HOUR;
+    case '/teams/get-team-stats':
+    case '/teams/get-team-matches-stats':
+      return 15 * MINUTE;
     case '/players/get-player-stats':
     case '/players/get-player-matches':
       return HOUR;

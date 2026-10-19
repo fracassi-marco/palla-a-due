@@ -4,6 +4,7 @@ import { GetMatchBoxScore } from '../application/GetMatchBoxScore';
 import { GetPlayerProfile } from '../application/GetPlayerProfile';
 import { GetStandings } from '../application/GetStandings';
 import { GetTeamRoster } from '../application/GetTeamRoster';
+import { GetTeamStats } from '../application/GetTeamStats';
 import {
   ApiCompetitionRepository,
   ApiMatchRepository,
@@ -33,5 +34,6 @@ export const useCases = {
   getCalendar: new GetCalendar(competitions, matches, standings, getCurrentRound),
   getMatchBoxScore: new GetMatchBoxScore(matches),
   getTeamRoster: new GetTeamRoster(teams),
+  getTeamStats: new GetTeamStats(teams, competitions, standings),
   getPlayerProfile: new GetPlayerProfile(players),
 };

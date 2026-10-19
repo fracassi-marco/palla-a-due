@@ -13,6 +13,8 @@ Tutte le chiamate passano da `CachedHttpClient` (`src/infrastructure/cache/`), c
 | `/championships/get-championships-calendar-by-id` | `id` (competizione), `d` (giornata, opzionale) | Partite della giornata corrente (senza `d`) o di una giornata specifica (con `d`) | Home, Calendario | Dipende dal contenuto, vedi sotto |
 | `/championships/get-championships-matches-scores-by-id` | `id` (partita) | Box score: statistiche dei giocatori di una partita in corso o conclusa | Partita | 60 s con dati, 30 s se vuoto |
 | `/teams/get-team-roster` | `id` (squadra) | Roster di una squadra: giocatori e staff | Partita, Squadra | 12 ore |
+| `/teams/get-team-stats` | `id` (squadra), `s` (stagione) | Medie di squadra e posizione in lega per punti, rimbalzi e assist | Squadra | 15 min |
+| `/teams/get-team-matches-stats` | `id` (squadra), `s` (stagione) | Risultati partita per partita (casa/trasferta, punteggi): vittorie/sconfitte casa e fuori, striscia, forma, record | Squadra | 15 min |
 | `/players/get-player-stats` | `id` (giocatore), `s` (stagione) | Statistiche stagionali del giocatore | Giocatore | 1 ora |
 | `/players/get-player-matches` | `id` (giocatore), `s` (stagione) | Game log: statistiche del giocatore partita per partita | Giocatore | 1 ora |
 

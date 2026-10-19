@@ -6,13 +6,16 @@ interface Props {
   value: string;
   accent?: string;
   big?: boolean;
+  /** Riga secondaria sotto l'etichetta, es. la posizione in classifica. */
+  hint?: string;
 }
 
-export function StatTile({ label, value, accent = colors.orange, big }: Props) {
+export function StatTile({ label, value, accent = colors.orange, big, hint }: Props) {
   return (
     <View style={[styles.tile, big && styles.big, { borderColor: accent }]}>
       <Text style={[styles.value, big && styles.valueBig, { color: accent }]}>{value}</Text>
       <Text style={styles.label}>{label}</Text>
+      {hint ? <Text style={[styles.hint, { color: accent }]}>{hint}</Text> : null}
     </View>
   );
 }
@@ -22,5 +25,6 @@ const styles = StyleSheet.create({
   big: { paddingVertical: 18 },
   value: { fontFamily: fonts.display, fontSize: 32, lineHeight: 34 },
   valueBig: { fontSize: 46, lineHeight: 48 },
+  hint: { fontFamily: fonts.condensed, fontSize: 12, letterSpacing: 1, marginTop: 2 },
   label: { color: colors.textMuted, fontFamily: fonts.condensed, fontSize: 13, letterSpacing: 1.2, marginTop: 2 },
 });

@@ -10,7 +10,9 @@ import {
   StatLine,
   Standing,
   TeamRef,
+  TeamResult,
 } from '../../domain/entities';
+import { TeamSeasonStats } from '../../domain/ports';
 import {
   BoxScoreRowDto,
   BoxScoreResponseDto,
@@ -22,6 +24,8 @@ import {
   RosterResponseDto,
   StandingDto,
   StatRowDto,
+  TeamMatchStatsDto,
+  TeamStatsResponseDto,
 } from './dto';
 
 export const CDN_URL = 'https://lba-media.s3.eu-south-1.amazonaws.com';
@@ -225,4 +229,55 @@ function toBoxScoreSide(rows: BoxScoreRowDto[] | null | undefined): Record<numbe
 
 export function toBoxScore(dto: BoxScoreResponseDto): BoxScore {
   return { home: toBoxScoreSide(dto.scores?.ht?.rows), away: toBoxScoreSide(dto.scores?.vt?.rows) };
+}
+
+const num = (value: string | number | null | undefined): number => Number(value ?? 0) || 0;
+
+function shotPercent(made: number, attempted: number): number | null {
+  return attempted > 0 ? (made / attempted) * 100 : null;
+}
+
+export function toTeamSeasonStats(dto: TeamStatsResponseDto): TeamSeasonStats | null {
+  const row = dto.stats?.[0];
+  if (!row) return null;
+  const cat = dto.rnk_sum?.cat;
+  const standing = dto.rnk_sum?.r_s;
+  return {
+    position: standing?.pos ?? null,
+    leaguePoints: standing?.points ?? 0,
+    wins: standing?.mw ?? 0,
+    losses: standing?.ml ?? 0,
+    pointsRank: cat?.points?.pos ?? null,
+    reboundsRank: cat?.total_rebound?.pos ?? null,
+    assistsRank: cat?.assists?.pos ?? null,
+    avgPoints: num(row.points_avg),
+    avgOffensiveRebounds: num(row.offensive_rebound_avg),
+    avgDefensiveRebounds: num(row.defensive_rebound_avg),
+    avgAssists: num(row.assists_avg),
+    avgSteals: num(row.regain_balls_avg),
+    avgBlocks: num(row.ball_stop_given_avg),
+    avgTurnovers: num(row.lost_balls_avg),
+    avgFouls: num(row.done_fouls_avg),
+    avgRating: num(row.rating_lega_avg),
+    twoPercent: shotPercent(num(row.shots_2p_realized_sum), num(row.shots_2p_total_sum)),
+    threePercent: shotPercent(num(row.shots_3p_realized_sum), num(row.shots_3p_total_sum)),
+    freeThrowPercent: shotPercent(num(row.free_throws_realized_sum), num(row.free_throws_total_sum)),
+  };
+}
+
+/** Partita conclusa dal punto di vista della squadra; null se il punteggio non c'è ancora. */
+export function toTeamResult(dto: TeamMatchStatsDto): TeamResult | null {
+  if (dto.home_final_score === null || dto.visitor_final_score === null) return null;
+  const isHome = dto.side === 'h';
+  const teamScore = isHome ? dto.home_final_score : dto.visitor_final_score;
+  const opponentScore = isHome ? dto.visitor_final_score : dto.home_final_score;
+  return {
+    matchId: dto.championships_match_id,
+    date: new Date(dto.match_datetime),
+    opponentName: dto.opponent_name,
+    isHome,
+    teamScore,
+    opponentScore,
+    won: teamScore > opponentScore,
+  };
 }

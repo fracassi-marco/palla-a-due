@@ -6,3 +6,4 @@ export * from './PlayerStats';
 export * from './Roster';
 export * from './Standing';
 export * from './Team';
+export * from './TeamStats';
