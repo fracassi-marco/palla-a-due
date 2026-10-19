@@ -1,19 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import { FlatList, RefreshControl, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Link } from 'expo-router';
+import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCases } from '../di/container';
-import { Match } from '../domain/entities';
 import { MatchCard } from '../presentation/components/MatchCard';
 import { SectionTitle } from '../presentation/components/SectionTitle';
 import { Empty, ErrorView, Loading } from '../presentation/components/StateViews';
 import { StandingsTable } from '../presentation/components/StandingsTable';
+import { useOpenMatch } from '../presentation/hooks/useOpenMatch';
 import { useAsync } from '../presentation/hooks/useAsync';
-import { colors, fonts } from '../presentation/theme';
+import { colors, fonts, radius } from '../presentation/theme';
 
 export default function HomeScreen() {
-  const router = useRouter();
   const { width } = useWindowDimensions();
   const cardWidth = Math.min(width * 0.82, 340);
 
@@ -26,23 +25,7 @@ export default function HomeScreen() {
     matches.reload();
   };
 
-  const openMatch = (m: Match) =>
-    router.push({
-      pathname: '/match/[id]',
-      params: {
-        id: String(m.id),
-        homeId: String(m.home.id),
-        awayId: String(m.away.id),
-        homeName: m.home.name,
-        awayName: m.away.name,
-        homeLogo: m.home.logoUrl ?? '',
-        awayLogo: m.away.logoUrl ?? '',
-        startsAt: m.startsAt.toISOString(),
-        status: m.status,
-        homeScore: String(m.homeScore ?? ''),
-        awayScore: String(m.awayScore ?? ''),
-      },
-    });
+  const openMatch = useOpenMatch();
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -75,6 +58,12 @@ export default function HomeScreen() {
         ) : (
           <Empty text="Nessuna partita in programma." />
         )}
+        <Link href="/calendar" asChild>
+          <Pressable style={styles.calendarBtn}>
+            <Ionicons name="calendar-outline" size={18} color={colors.cyan} />
+            <Text style={styles.calendarText}>TUTTO IL CALENDARIO</Text>
+          </Pressable>
+        </Link>
 
         <SectionTitle title="CLASSIFICA" accent={colors.orange} right="REGULAR SEASON" />
         {standings.loading ? (
@@ -113,6 +102,8 @@ const styles = StyleSheet.create({
   heroBall: { position: 'absolute', right: -14, top: -14 },
   heroKicker: { color: colors.bg, fontFamily: fonts.condensed, fontSize: 14, letterSpacing: 2.5 },
   heroTitle: { color: colors.bg, fontFamily: fonts.display, fontSize: 62, lineHeight: 58, letterSpacing: 1, transform: [{ skewX: '-6deg' }] },
+  calendarBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: 16, marginTop: 16, paddingVertical: 12, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface },
+  calendarText: { color: colors.cyan, fontFamily: fonts.display, fontSize: 20, letterSpacing: 1 },
   legend: { flexDirection: 'row', justifyContent: 'center', gap: 16, marginTop: 12 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   dot: { width: 10, height: 10, borderRadius: 5 },
