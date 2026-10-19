@@ -4,6 +4,10 @@ on:
   push:
     tags:
       - "v*.*.*"
+    # Le run su main servono a scaldare le cache (i tag leggono solo quelle del branch di default)
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
   build-apk:
@@ -42,13 +46,18 @@ jobs:
 
       - name: Enable Gradle build cache
         run: |
-          printf '\norg.gradle.caching=true\n' >> android/gradle.properties
+          {
+            printf '\norg.gradle.caching=true\n'
+            printf 'org.gradle.parallel=true\n'
+            printf 'org.gradle.configureondemand=true\n'
+            printf 'org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+UseParallelGC\n'
+          } >> android/gradle.properties
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
         with:
           gradle-home-cache-cleanup: true
-          cache-read-only: false
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
       - name: Build APK
         working-directory: android
@@ -65,9 +74,11 @@ jobs:
           echo "path=$APK_PATH" >> "$GITHUB_OUTPUT"
 
       - name: Rename APK
+        if: startsWith(github.ref, 'refs/tags/')
         run: cp "${{ steps.apk.outputs.path }}" "tuttobasket-${{ github.ref_name }}.apk"
 
       - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
