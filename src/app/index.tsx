@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link } from 'expo-router';
 import { useMemo } from 'react';
+import { RankedStat } from '../domain/entities';
 import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCases } from '../di/container';
@@ -9,12 +10,29 @@ import { MatchCard } from '../presentation/components/MatchCard';
 import { SectionTitle } from '../presentation/components/SectionTitle';
 import { Empty, ErrorView, Loading } from '../presentation/components/StateViews';
 import { StandingsTable } from '../presentation/components/StandingsTable';
+import { RANKING_STATS } from '../presentation/rankingStats';
 import { useOpenMatch } from '../presentation/hooks/useOpenMatch';
 import { favoriteFirst } from '../domain/favoriteFirst';
 import { useFavoriteTeamId } from '../presentation/hooks/useFavoriteTeam';
 import { useAsync } from '../presentation/hooks/useAsync';
 import { useDataVersion } from '../presentation/hooks/useSync';
 import { colors, fonts, radius } from '../presentation/theme';
+
+const HOME_STATS = Object.keys(RANKING_STATS) as RankedStat[];
+
+const STAT_ICONS: Record<RankedStat, keyof typeof Ionicons.glyphMap> = {
+  points: 'basketball',
+  totalRebounds: 'arrow-up-circle',
+  assists: 'git-network',
+  rating: 'star',
+  minutes: 'time',
+  steals: 'flash',
+  blocks: 'hand-left',
+  turnovers: 'alert-circle',
+  twoPercent: 'locate',
+  threePercent: 'radio-button-on',
+  freeThrowPercent: 'disc',
+};
 
 export default function HomeScreen() {
   const { width } = useWindowDimensions();
@@ -95,6 +113,20 @@ export default function HomeScreen() {
         ) : (
           <Empty text="Classifica non ancora disponibile." />
         )}
+        <SectionTitle title="STATISTICHE GIOCATORI" accent={colors.yellow} right="LEADER DI LEGA" />
+        <View style={styles.statGrid}>
+          {HOME_STATS.map((stat) => (
+            <Link key={stat} href={{ pathname: '/ranking/[stat]', params: { stat } }} asChild>
+              <Pressable style={styles.statCard}>
+                <View style={styles.statIcon}>
+                  <Ionicons name={STAT_ICONS[stat]} size={20} color={colors.orange} />
+                </View>
+                <Text style={styles.statTitle} numberOfLines={1}>{RANKING_STATS[stat].title}</Text>
+                <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+              </Pressable>
+            </Link>
+          ))}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -118,6 +150,10 @@ const styles = StyleSheet.create({
   heroTitle: { color: colors.bg, fontFamily: fonts.display, fontSize: 42, lineHeight: 46, letterSpacing: 1, transform: [{ skewX: '-6deg' }] },
   calendarBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: 16, marginTop: 16, paddingVertical: 12, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface },
   calendarText: { color: colors.cyan, fontFamily: fonts.display, fontSize: 20, letterSpacing: 1 },
+  statGrid: { gap: 12, paddingHorizontal: 16 },
+  statCard: { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 60, paddingHorizontal: 14, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface },
+  statIcon: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceAlt },
+  statTitle: { flex: 1, flexShrink: 1, color: colors.text, fontFamily: fonts.condensed, fontSize: 16, letterSpacing: 0.8 },
   legend: { flexDirection: 'row', justifyContent: 'center', gap: 16, marginTop: 12 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   dot: { width: 10, height: 10, borderRadius: 5 },

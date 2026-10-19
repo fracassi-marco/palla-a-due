@@ -3,32 +3,19 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { useCases } from '../../di/container';
-import { LeagueRankingEntry, RankedStat } from '../../domain/entities';
+import { LeagueRankingEntry } from '../../domain/entities';
 import { isRankedStat } from '../../domain/statLines';
 import { resolveImageSource } from '../../infrastructure/images';
 import { Empty, ErrorView, Loading } from '../../presentation/components/StateViews';
 import { useFavoriteTeamId } from '../../presentation/hooks/useFavoriteTeam';
 import { useAsync } from '../../presentation/hooks/useAsync';
+import { RANKING_STATS as STATS } from '../../presentation/rankingStats';
 import { useStatsVersion } from '../../presentation/hooks/useSync';
 import { colors, fonts, radius } from '../../presentation/theme';
 import { one } from '../../presentation/theme/format';
 
 const ROW_HEIGHT = 64;
 const ROW_GAP = 8;
-
-const STATS: Record<RankedStat, { title: string; unit: string; percent?: boolean }> = {
-  points: { title: 'PUNTI', unit: 'A PARTITA' },
-  totalRebounds: { title: 'RIMBALZI', unit: 'A PARTITA' },
-  assists: { title: 'ASSIST', unit: 'A PARTITA' },
-  rating: { title: 'VALUTAZIONE', unit: 'A PARTITA' },
-  minutes: { title: 'MINUTI', unit: 'A PARTITA' },
-  steals: { title: 'PALLE RUBATE', unit: 'A PARTITA' },
-  blocks: { title: 'STOPPATE', unit: 'A PARTITA' },
-  turnovers: { title: 'PALLE PERSE', unit: 'A PARTITA, MENO È MEGLIO' },
-  twoPercent: { title: 'TIRI DA 2', unit: 'PERCENTUALE, ALMENO 1 TIRO A PARTITA', percent: true },
-  threePercent: { title: 'TIRI DA 3', unit: 'PERCENTUALE, ALMENO 1 TIRO A PARTITA', percent: true },
-  freeThrowPercent: { title: 'TIRI LIBERI', unit: 'PERCENTUALE, ALMENO 1 TIRO A PARTITA', percent: true },
-};
 
 export default function RankingScreen() {
   const params = useLocalSearchParams<{ stat: string; player?: string }>();

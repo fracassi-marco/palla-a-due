@@ -1,4 +1,5 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useCases } from '../../di/container';
@@ -10,6 +11,7 @@ import { useOpenTeam } from '../../presentation/hooks/useOpenTeam';
 import { useAsync } from '../../presentation/hooks/useAsync';
 import { useDataVersion } from '../../presentation/hooks/useSync';
 import { usePolling } from '../../presentation/hooks/usePolling';
+import { shareMatch } from '../../presentation/shareMatch';
 import { colors, fonts, radius } from '../../presentation/theme';
 import { formatDayMonth, formatTime, formatWeekday } from '../../presentation/theme/format';
 
@@ -73,8 +75,20 @@ export default function MatchScreen() {
   // Alla fine della partita le statistiche live restano a schermo finché non sono state rilette dal database.
   const stats = (boxScore.data ?? liveBox)?.[side];
 
+  const share = () =>
+    void shareMatch({ homeName: p.homeName, awayName: p.awayName, homeScore, awayScore, status, startsAt }).catch(() => {});
+
   return (
     <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+      <Stack.Screen
+        options={{
+          headerRight: () => (
+            <Pressable onPress={share} hitSlop={12} accessibilityLabel="Condividi il risultato">
+              <Ionicons name="share-outline" size={24} color={colors.orange} />
+            </Pressable>
+          ),
+        }}
+      />
       <View style={styles.scoreboard}>
         <Pressable style={styles.team} onPress={() => openTeam(Number(p.homeId), p.homeName, p.homeLogo || null)}>
           <TeamLogo uri={p.homeLogo || null} name={p.homeName} size={72} />
