@@ -51,6 +51,7 @@ export default function RootLayout() {
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="calendar" options={{ title: 'CALENDARIO' }} />
+        <Stack.Screen name="settings" options={{ title: 'IMPOSTAZIONI' }} />
         <Stack.Screen name="match/[id]" options={{ title: 'PARTITA' }} />
         <Stack.Screen name="team/[id]" options={{ title: 'SQUADRA' }} />
         <Stack.Screen name="player/[id]" options={{ title: 'GIOCATORE' }} />

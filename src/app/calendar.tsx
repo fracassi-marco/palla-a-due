@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useCases } from '../di/container';
 import { MatchCard } from '../presentation/components/MatchCard';
 import { Empty, ErrorView, Loading } from '../presentation/components/StateViews';
 import { useAsync } from '../presentation/hooks/useAsync';
 import { useDataVersion } from '../presentation/hooks/useSync';
+import { favoriteFirst } from '../domain/favoriteFirst';
+import { useFavoriteTeamId } from '../presentation/hooks/useFavoriteTeam';
 import { useOpenMatch } from '../presentation/hooks/useOpenMatch';
 import { colors, fonts, radius } from '../presentation/theme';
 
@@ -15,11 +17,14 @@ function DayMatches({ competitionId, day }: { competitionId: number; day: number
   const dataVersion = useDataVersion();
   const matches = useAsync(() => useCases.getCalendar.day(competitionId, day), [competitionId, day, dataVersion]);
 
+  const favoriteId = useFavoriteTeamId();
+  const ordered = useMemo(() => favoriteFirst(matches.data ?? [], favoriteId), [matches.data, favoriteId]);
+
   if (matches.loading) return <Loading />;
   if (matches.error) return <ErrorView onRetry={matches.reload} />;
   return (
     <FlatList
-      data={matches.data ?? []}
+      data={ordered}
       keyExtractor={(m) => String(m.id)}
       contentContainerStyle={styles.list}
       refreshControl={<RefreshControl refreshing={matches.refreshing} onRefresh={matches.reload} tintColor={colors.orange} />}

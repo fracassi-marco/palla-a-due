@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link } from 'expo-router';
+import { useMemo } from 'react';
 import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCases } from '../di/container';
@@ -9,6 +10,8 @@ import { SectionTitle } from '../presentation/components/SectionTitle';
 import { Empty, ErrorView, Loading } from '../presentation/components/StateViews';
 import { StandingsTable } from '../presentation/components/StandingsTable';
 import { useOpenMatch } from '../presentation/hooks/useOpenMatch';
+import { favoriteFirst } from '../domain/favoriteFirst';
+import { useFavoriteTeamId } from '../presentation/hooks/useFavoriteTeam';
 import { useAsync } from '../presentation/hooks/useAsync';
 import { useDataVersion } from '../presentation/hooks/useSync';
 import { colors, fonts, radius } from '../presentation/theme';
@@ -29,6 +32,8 @@ export default function HomeScreen() {
   };
 
   const openMatch = useOpenMatch();
+  const favoriteId = useFavoriteTeamId();
+  const roundMatches = useMemo(() => favoriteFirst(matches.data ?? [], favoriteId), [matches.data, favoriteId]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -40,6 +45,11 @@ export default function HomeScreen() {
           <Ionicons name="basketball" size={84} color="rgba(11,16,32,0.14)" style={styles.heroBall} />
           <Text style={styles.heroKicker}>LEGA BASKET SERIE A</Text>
           <Text style={styles.heroTitle}>TUTTO BASKET</Text>
+          <Link href="/settings" asChild>
+            <Pressable hitSlop={12} style={styles.settingsBtn} accessibilityLabel="Impostazioni">
+              <Ionicons name="settings-outline" size={22} color={colors.bg} />
+            </Pressable>
+          </Link>
         </LinearGradient>
 
         <SectionTitle title="PARTITE" accent={colors.cyan} right={matches.data?.[0]?.dayName.toUpperCase()} />
@@ -47,10 +57,10 @@ export default function HomeScreen() {
           <Loading />
         ) : matches.error ? (
           <ErrorView onRetry={matches.reload} />
-        ) : matches.data && matches.data.length > 0 ? (
+        ) : roundMatches.length > 0 ? (
           <FlatList
             horizontal
-            data={matches.data}
+            data={roundMatches}
             keyExtractor={(m) => String(m.id)}
             showsHorizontalScrollIndicator={false}
             snapToInterval={cardWidth + 12}
@@ -102,6 +112,7 @@ function LegendDot({ color, label }: { color: string; label: string }) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   hero: { marginHorizontal: 16, marginTop: 8, borderRadius: 22, padding: 16, overflow: 'hidden', minHeight: 96, justifyContent: 'flex-end' },
+  settingsBtn: { position: 'absolute', right: 14, bottom: 14 },
   heroBall: { position: 'absolute', right: -8, top: -10 },
   heroKicker: { color: colors.bg, fontFamily: fonts.condensed, fontSize: 14, letterSpacing: 2.5 },
   heroTitle: { color: colors.bg, fontFamily: fonts.display, fontSize: 42, lineHeight: 46, letterSpacing: 1, transform: [{ skewX: '-6deg' }] },

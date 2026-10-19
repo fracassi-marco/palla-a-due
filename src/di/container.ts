@@ -18,6 +18,7 @@ import {
   SqliteStandingsRepository,
   SqliteTeamRepository,
 } from '../infrastructure/db';
+import { FavoriteTeamStore } from '../infrastructure/storage/FavoriteTeamStore';
 
 const API_BASE_URL = 'https://www.legabasket.it/api';
 
@@ -46,4 +47,5 @@ export const useCases = {
   getTeamStats: new GetTeamStats(teams, competitions, standings),
   getPlayerProfile: new GetPlayerProfile(players),
   getLeagueRanking: new GetLeagueRanking(players),
+  favoriteTeam: new FavoriteTeamStore(),
 };
