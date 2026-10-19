@@ -1,3 +1,4 @@
+export * from './BoxScore';
 export * from './Competition';
 export * from './Match';
 export * from './Player';

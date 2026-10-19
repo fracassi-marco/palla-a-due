@@ -1,8 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useCases } from '../../di/container';
-import { Roster } from '../../domain/entities';
+import { Roster, StatLine } from '../../domain/entities';
 import { PlayerRow } from '../../presentation/components/PlayerRow';
 import { Empty, ErrorView, Loading } from '../../presentation/components/StateViews';
 import { TeamLogo } from '../../presentation/components/TeamLogo';
@@ -10,7 +10,7 @@ import { useAsync } from '../../presentation/hooks/useAsync';
 import { colors, fonts, radius } from '../../presentation/theme';
 import { formatDayMonth, formatTime, formatWeekday } from '../../presentation/theme/format';
 
-type Params = Record<'homeId' | 'awayId' | 'homeName' | 'awayName' | 'homeLogo' | 'awayLogo' | 'startsAt' | 'status' | 'homeScore' | 'awayScore', string>;
+type Params = Record<'id' | 'homeId' | 'awayId' | 'homeName' | 'awayName' | 'homeLogo' | 'awayLogo' | 'startsAt' | 'status' | 'homeScore' | 'awayScore', string>;
 
 export default function MatchScreen() {
   const p = useLocalSearchParams<Params>();
@@ -22,6 +22,19 @@ export default function MatchScreen() {
 
   const startsAt = new Date(p.startsAt);
   const played = p.status !== 'scheduled';
+  const live = p.status === 'live';
+
+  const boxScore = useAsync(
+    () => (played ? useCases.getMatchBoxScore.execute(Number(p.id)) : Promise.resolve(null)),
+    [p.id, played],
+  );
+  const reloadBoxScore = boxScore.reload;
+  useEffect(() => {
+    if (!live) return;
+    const timer = setInterval(reloadBoxScore, 30_000);
+    return () => clearInterval(timer);
+  }, [live, reloadBoxScore]);
+  const stats = boxScore.data ? boxScore.data[side] : undefined;
 
   return (
     <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
@@ -55,13 +68,13 @@ export default function MatchScreen() {
       ) : roster.error ? (
         <ErrorView onRetry={roster.reload} />
       ) : roster.data ? (
-        <RosterList roster={roster.data} onPlayer={(id) => router.push({ pathname: '/player/[id]', params: { id: String(id) } })} />
+        <RosterList roster={roster.data} stats={stats} onPlayer={(id) => router.push({ pathname: '/player/[id]', params: { id: String(id) } })} />
       ) : null}
     </ScrollView>
   );
 }
 
-function RosterList({ roster, onPlayer }: { roster: Roster; onPlayer: (id: number) => void }) {
+function RosterList({ roster, stats, onPlayer }: { roster: Roster; stats?: Record<number, StatLine>; onPlayer: (id: number) => void }) {
   if (roster.players.length === 0) return <Empty text="Roster non ancora disponibile." />;
   return (
     <View>
@@ -72,7 +85,7 @@ function RosterList({ roster, onPlayer }: { roster: Roster; onPlayer: (id: numbe
         </View>
       ) : null}
       {roster.players.map((pl) => (
-        <PlayerRow key={pl.id} player={pl} onPress={() => onPlayer(pl.id)} />
+        <PlayerRow key={pl.id} player={pl} stats={stats ? (stats[pl.id] ?? undefined) : undefined} onPress={() => onPlayer(pl.id)} />
       ))}
     </View>
   );

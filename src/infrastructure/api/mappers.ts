@@ -1,4 +1,5 @@
 import {
+  BoxScore,
   Coach,
   GameLogEntry,
   Match,
@@ -11,6 +12,8 @@ import {
   TeamRef,
 } from '../../domain/entities';
 import {
+  BoxScoreRowDto,
+  BoxScoreResponseDto,
   CoachDto,
   GameLogRowDto,
   MatchDto,
@@ -187,4 +190,39 @@ export function toPlayerProfile(
       .map(toGameLogEntry)
       .sort((a, b) => b.date.getTime() - a.date.getTime()),
   };
+}
+
+function toBoxScoreLine(row: BoxScoreRowDto): StatLine {
+  const off = n(row.rimbalzi_o);
+  const def = n(row.rimbalzi_d);
+  return {
+    points: n(row.pun),
+    minutes: n(row.min),
+    matches: 1,
+    twoMade: n(row.t2_r),
+    twoAttempted: n(row.t2_t),
+    threeMade: n(row.t3_r),
+    threeAttempted: n(row.t3_t),
+    freeThrowsMade: n(row.tl_r),
+    freeThrowsAttempted: n(row.tl_t),
+    offensiveRebounds: off,
+    defensiveRebounds: def,
+    totalRebounds: row.rimbalzi_t ?? off + def,
+    assists: n(row.ass),
+    steals: n(row.palle_r),
+    turnovers: n(row.palle_p),
+    blocks: n(row.stoppate_dat),
+    fouls: n(row.falli_c),
+    rating: n(row.val_lega),
+  };
+}
+
+function toBoxScoreSide(rows: BoxScoreRowDto[] | null | undefined): Record<number, StatLine> {
+  const side: Record<number, StatLine> = {};
+  for (const row of rows ?? []) side[row.player_id] = toBoxScoreLine(row);
+  return side;
+}
+
+export function toBoxScore(dto: BoxScoreResponseDto): BoxScore {
+  return { home: toBoxScoreSide(dto.scores?.ht?.rows), away: toBoxScoreSide(dto.scores?.vt?.rows) };
 }

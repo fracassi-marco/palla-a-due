@@ -1,9 +1,10 @@
-import { Match } from '../../domain/entities';
+import { BoxScore, Match } from '../../domain/entities';
 import { MatchRepository } from '../../domain/ports';
-import { CalendarResponseDto } from './dto';
+import { BoxScoreResponseDto, CalendarResponseDto } from './dto';
 import { HttpClient } from './HttpClient';
-import { toMatch } from './mappers';
+import { toBoxScore, toMatch } from './mappers';
 
+const BOX_SCORE_PATH = '/championships/get-championships-matches-scores-by-id';
 const CALENDAR_PATH = '/championships/get-championships-calendar-by-id';
 
 export class ApiMatchRepository implements MatchRepository {
@@ -20,5 +21,10 @@ export class ApiMatchRepository implements MatchRepository {
       d: dayNumber,
     });
     return (response.matches ?? []).map(toMatch);
+  }
+
+  async getBoxScore(matchId: number): Promise<BoxScore> {
+    const response = await this.http.get<BoxScoreResponseDto>(BOX_SCORE_PATH, { id: matchId });
+    return toBoxScore(response);
   }
 }

@@ -1,4 +1,5 @@
 import { GetCurrentRound } from '../application/GetCurrentRound';
+import { GetMatchBoxScore } from '../application/GetMatchBoxScore';
 import { GetPlayerProfile } from '../application/GetPlayerProfile';
 import { GetStandings } from '../application/GetStandings';
 import { GetTeamRoster } from '../application/GetTeamRoster';
@@ -25,6 +26,7 @@ const players = new ApiPlayerRepository(http);
 export const useCases = {
   getStandings: new GetStandings(competitions, standings),
   getCurrentRound: new GetCurrentRound(competitions, matches),
+  getMatchBoxScore: new GetMatchBoxScore(matches),
   getTeamRoster: new GetTeamRoster(teams),
   getPlayerProfile: new GetPlayerProfile(players),
 };

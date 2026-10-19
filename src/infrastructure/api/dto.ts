@@ -163,3 +163,31 @@ export interface GameLogRowDto extends StatRowDto {
 export interface GameLogResponseDto {
   matches_stats: { data: GameLogRowDto[] | null } | null;
 }
+
+export interface BoxScoreRowDto {
+  player_id: number;
+  pun: number | null;
+  min: number | null;
+  falli_c: number | null;
+  t2_r: number | null;
+  t2_t: number | null;
+  t3_r: number | null;
+  t3_t: number | null;
+  tl_r: number | null;
+  tl_t: number | null;
+  rimbalzi_o: number | null;
+  rimbalzi_d: number | null;
+  rimbalzi_t: number | null;
+  stoppate_dat: number | null;
+  palle_p: number | null;
+  palle_r: number | null;
+  ass: number | null;
+  val_lega: number | null;
+}
+
+export interface BoxScoreResponseDto {
+  scores: {
+    ht: { rows: BoxScoreRowDto[] | null } | null;
+    vt: { rows: BoxScoreRowDto[] | null } | null;
+  } | null;
+}
