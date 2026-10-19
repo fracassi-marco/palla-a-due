@@ -4,6 +4,7 @@ import { useCases } from '../di/container';
 import { MatchCard } from '../presentation/components/MatchCard';
 import { Empty, ErrorView, Loading } from '../presentation/components/StateViews';
 import { useAsync } from '../presentation/hooks/useAsync';
+import { useDataVersion } from '../presentation/hooks/useSync';
 import { useOpenMatch } from '../presentation/hooks/useOpenMatch';
 import { colors, fonts, radius } from '../presentation/theme';
 
@@ -11,7 +12,8 @@ const CHIP_WIDTH = 64;
 
 function DayMatches({ competitionId, day }: { competitionId: number; day: number }) {
   const openMatch = useOpenMatch();
-  const matches = useAsync(() => useCases.getCalendar.day(competitionId, day));
+  const dataVersion = useDataVersion();
+  const matches = useAsync(() => useCases.getCalendar.day(competitionId, day), [competitionId, day, dataVersion]);
 
   if (matches.loading) return <Loading />;
   if (matches.error) return <ErrorView onRetry={matches.reload} />;
@@ -31,7 +33,8 @@ function DayMatches({ competitionId, day }: { competitionId: number; day: number
 }
 
 export default function CalendarScreen() {
-  const overview = useAsync(() => useCases.getCalendar.overview());
+  const dataVersion = useDataVersion();
+  const overview = useAsync(() => useCases.getCalendar.overview(), [dataVersion]);
   const [selected, setSelected] = useState<number | null>(null);
   const chips = useRef<FlatList<number>>(null);
 

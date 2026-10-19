@@ -20,7 +20,7 @@ export class GetCurrentRound {
    */
   async execute(now: Date = new Date()): Promise<Match[]> {
     const competition = await this.competitions.getCurrentRegularSeason(currentSeasonYear(now));
-    const focus = await this.matches.getCurrentDayMatches(competition.id);
+    const focus = await this.matches.getCurrentDayMatches(competition.id, now);
     if (focus.length === 0) return [];
 
     const focusDay = focus[0].dayNumber;

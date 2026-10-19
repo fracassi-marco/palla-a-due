@@ -1,13 +1,13 @@
 import { BoxScore, Match } from '../entities';
 
 export interface MatchRepository {
-  /** Partite della giornata corrente del campionato. */
-  getCurrentDayMatches(competitionId: number): Promise<Match[]>;
-  /** Partite di una giornata specifica; lista vuota se la giornata non esiste. */
-  getMatchesByDay(competitionId: number, dayNumber: number): Promise<Match[]>;
   /**
-   * Statistiche dei giocatori di una partita (in corso o conclusa); vuote se non disponibili.
-   * Con `settled` la partita è chiusa da tempo e le statistiche non cambiano più.
+   * Partite della giornata "corrente": quella della prossima palla a due (o in corso),
+   * altrimenti l'ultima giornata giocata.
    */
-  getBoxScore(matchId: number, settled?: boolean): Promise<BoxScore>;
+  getCurrentDayMatches(competitionId: number, now: Date): Promise<Match[]>;
+  /** Partite di una giornata specifica; lista vuota se la giornata non c'è. */
+  getMatchesByDay(competitionId: number, dayNumber: number): Promise<Match[]>;
+  /** Statistiche dei giocatori di una partita; vuote se non ancora scaricate. */
+  getBoxScore(matchId: number): Promise<BoxScore>;
 }

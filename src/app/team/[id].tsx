@@ -7,6 +7,7 @@ import { Empty, ErrorView, Loading } from '../../presentation/components/StateVi
 import { TeamLogo } from '../../presentation/components/TeamLogo';
 import { TeamStatsSection } from '../../presentation/components/TeamStatsSection';
 import { useAsync } from '../../presentation/hooks/useAsync';
+import { useDataVersion } from '../../presentation/hooks/useSync';
 import { colors, fonts, radius } from '../../presentation/theme';
 
 type Params = Record<'id' | 'name' | 'logo', string>;
@@ -15,8 +16,9 @@ export default function TeamScreen() {
   const p = useLocalSearchParams<Params>();
   const router = useRouter();
   const teamId = Number(p.id);
-  const roster = useAsync(() => useCases.getTeamRoster.execute(teamId), [teamId]);
-  const stats = useAsync(() => useCases.getTeamStats.execute(teamId), [teamId]);
+  const dataVersion = useDataVersion();
+  const roster = useAsync(() => useCases.getTeamRoster.execute(teamId), [teamId, dataVersion]);
+  const stats = useAsync(() => useCases.getTeamStats.execute(teamId), [teamId, dataVersion]);
 
   return (
     <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>

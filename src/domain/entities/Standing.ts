@@ -13,6 +13,4 @@ export interface Standing {
   avgPointsAgainst: number;
   playoffQualified: boolean;
   relegation: boolean;
-  /** Variazione di posizione rispetto alla giornata precedente (es. "+1"). */
-  movement: string | null;
 }

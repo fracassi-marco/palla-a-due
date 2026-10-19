@@ -1,10 +1,5 @@
-export interface RequestOptions {
-  /** Durata di validità (ms) della risposta in cache, al posto di quella decisa dalla policy. Ignorata senza cache. */
-  ttlMs?: number;
-}
-
 export interface HttpClient {
-  get<T>(path: string, params?: Record<string, string | number | boolean>, options?: RequestOptions): Promise<T>;
+  get<T>(path: string, params?: Record<string, string | number | boolean>): Promise<T>;
 }
 
 export class HttpError extends Error {

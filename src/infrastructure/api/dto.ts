@@ -12,30 +12,6 @@ export interface CompetitionsResponseDto {
   competitions: CompetitionDto[];
 }
 
-export interface StandingDto {
-  position: number;
-  team_id: number;
-  team_name: string;
-  club_code: string;
-  logo_key: string | null;
-  wins: number;
-  defeats: number;
-  points: number;
-  points_made: number;
-  points_suffered: number;
-  game_played: number;
-  avg_points_made: number;
-  avg_points_suffered: number;
-  play_off_qualified: boolean;
-  relegation: boolean;
-  movement: string | null;
-}
-
-export interface StandingsResponseDto {
-  standings: StandingDto[] | null;
-  cdn_url: string;
-}
-
 export interface MatchDto {
   id: number;
   game_status: string;
@@ -98,77 +74,12 @@ export interface RosterResponseDto {
   cdn_url: string;
 }
 
-export interface PlayerDto {
-  id: number;
-  name: string;
-  surname: string;
-  place_of_birth: string | null;
-  birth_date: string | null;
-  photo_picture_key: string | null;
-  player_number: string | null;
-  height: number | null;
-  weight: number | null;
-  team_id: number;
-  team_name: string;
-  player_role_description: string | null;
-  player_country_name: string | null;
-}
-
-/** Riga statistiche aggregata (media/massimo/totale). */
-export interface StatRowDto {
-  points: number | null;
-  played_minutes: number | null;
-  played_matches: number | null;
-  done_fouls: number | null;
-  shots_2p_realized: number | null;
-  shots_2p_total: number | null;
-  shots_3p_realized: number | null;
-  shots_3p_total: number | null;
-  free_throws_realized: number | null;
-  free_throws_total: number | null;
-  offensive_rebound: number | null;
-  defensive_rebound: number | null;
-  total_rebound?: number | null;
-  ball_stop_given: number | null;
-  lost_balls: number | null;
-  regain_balls: number | null;
-  assists: number | null;
-  rating_lega: number | null;
-}
-
-export interface PlayerStatsResponseDto {
-  player: PlayerDto;
-  stats: {
-    data: {
-      avg: StatRowDto[] | null;
-      max: StatRowDto[] | null;
-      sum: StatRowDto[] | null;
-    };
-  } | null;
-}
-
-export interface GameLogRowDto extends StatRowDto {
-  championship_match_id: number;
-  match_date: string;
-  player_team_id: number;
-  home_team_id: number;
-  home_team_name: string;
-  home_team_logo_key: string | null;
-  visitor_team_name: string;
-  visitor_team_logo_key: string | null;
-  home_score: number;
-  visitor_score: number;
-}
-
-export interface GameLogResponseDto {
-  matches_stats: { data: GameLogRowDto[] | null } | null;
-}
-
-export interface BoxScoreRowDto {
-  player_id: number;
-  pun: number | null;
+/** Statistiche di una partita: stessi campi per la riga di un giocatore e per i totali di squadra. */
+export interface BoxScoreStatsDto {
   min: number | null;
+  pun: number | null;
   falli_c: number | null;
+  falli_sf: number | null;
   t2_r: number | null;
   t2_t: number | null;
   t3_r: number | null;
@@ -179,59 +90,32 @@ export interface BoxScoreRowDto {
   rimbalzi_d: number | null;
   rimbalzi_t: number | null;
   stoppate_dat: number | null;
+  stoppate_sub: number | null;
   palle_p: number | null;
   palle_r: number | null;
   ass: number | null;
   val_lega: number | null;
 }
 
+export interface BoxScoreRowDto extends BoxScoreStatsDto {
+  player_id: number;
+  player_num: number | string | null;
+  player_name: string;
+  player_surname: string;
+  player_p_key: string | null;
+  /** "1" se in quintetto base. */
+  sf: string | number | null;
+  plus_minus: number | null;
+}
+
+export interface BoxScoreSideDto {
+  rows: BoxScoreRowDto[] | null;
+  totals: BoxScoreStatsDto | null;
+}
+
 export interface BoxScoreResponseDto {
   scores: {
-    ht: { rows: BoxScoreRowDto[] | null } | null;
-    vt: { rows: BoxScoreRowDto[] | null } | null;
+    ht: BoxScoreSideDto | null;
+    vt: BoxScoreSideDto | null;
   } | null;
-}
-
-export interface TeamStatsRowDto {
-  points_avg: string;
-  done_fouls_avg: string;
-  shots_2p_realized_sum: number;
-  shots_2p_total_sum: number;
-  shots_3p_realized_sum: number;
-  shots_3p_total_sum: number;
-  free_throws_realized_sum: number;
-  free_throws_total_sum: number;
-  offensive_rebound_avg: string;
-  defensive_rebound_avg: string;
-  ball_stop_given_avg: string;
-  lost_balls_avg: string;
-  regain_balls_avg: string;
-  assists_avg: string;
-  rating_lega_avg: number;
-}
-
-export interface TeamRankDto {
-  pos: number;
-  avg: number;
-}
-
-export interface TeamStatsResponseDto {
-  rnk_sum: {
-    cat?: { points?: TeamRankDto; total_rebound?: TeamRankDto; assists?: TeamRankDto } | null;
-    r_s?: { pos: number; points: number; mw: number; ml: number } | null;
-  } | null;
-  stats: TeamStatsRowDto[] | null;
-}
-
-export interface TeamMatchStatsDto {
-  side: 'h' | 'v';
-  home_final_score: number | null;
-  visitor_final_score: number | null;
-  championships_match_id: number;
-  match_datetime: string;
-  opponent_name: string;
-}
-
-export interface TeamMatchesStatsResponseDto {
-  matches: TeamMatchStatsDto[] | null;
 }

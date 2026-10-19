@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts, radius } from '../theme';
 
 interface Props {
@@ -8,15 +8,18 @@ interface Props {
   big?: boolean;
   /** Riga secondaria sotto l'etichetta, es. la posizione in classifica. */
   hint?: string;
+  /** Se presente il riquadro è premibile (es. per aprire la classifica). */
+  onPress?: () => void;
 }
 
-export function StatTile({ label, value, accent = colors.orange, big, hint }: Props) {
+export function StatTile({ label, value, accent = colors.orange, big, hint, onPress }: Props) {
+  const Container = onPress ? Pressable : View;
   return (
-    <View style={[styles.tile, big && styles.big, { borderColor: accent }]}>
+    <Container style={[styles.tile, big && styles.big, { borderColor: accent }]} onPress={onPress}>
       <Text style={[styles.value, big && styles.valueBig, { color: accent }]}>{value}</Text>
       <Text style={styles.label}>{label}</Text>
       {hint ? <Text style={[styles.hint, { color: accent }]}>{hint}</Text> : null}
-    </View>
+    </Container>
   );
 }
 

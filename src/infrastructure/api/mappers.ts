@@ -1,31 +1,24 @@
 import {
-  BoxScore,
+  BoxScorePlayer,
+  BoxScoreSide,
   Coach,
-  GameLogEntry,
+  GameStats,
   Match,
+  MatchBoxScore,
   MatchStatus,
   Player,
-  PlayerProfile,
   Roster,
-  StatLine,
-  Standing,
   TeamRef,
-  TeamResult,
 } from '../../domain/entities';
-import { TeamSeasonStats } from '../../domain/ports';
 import {
-  BoxScoreRowDto,
   BoxScoreResponseDto,
+  BoxScoreRowDto,
+  BoxScoreSideDto,
+  BoxScoreStatsDto,
   CoachDto,
-  GameLogRowDto,
   MatchDto,
-  PlayerDto,
   RosterPlayerDto,
   RosterResponseDto,
-  StandingDto,
-  StatRowDto,
-  TeamMatchStatsDto,
-  TeamStatsResponseDto,
 } from './dto';
 
 export const CDN_URL = 'https://lba-media.s3.eu-south-1.amazonaws.com';
@@ -38,24 +31,6 @@ const n = (value: number | null | undefined): number => value ?? 0;
 
 export function toTeamRef(id: number, name: string, code: string, logoKey: string | null): TeamRef {
   return { id, name, code, logoUrl: imageUrl(logoKey) };
-}
-
-export function toStanding(dto: StandingDto): Standing {
-  return {
-    position: dto.position,
-    team: toTeamRef(dto.team_id, dto.team_name, dto.club_code, dto.logo_key),
-    played: dto.game_played,
-    wins: dto.wins,
-    losses: dto.defeats,
-    points: dto.points,
-    pointsFor: dto.points_made,
-    pointsAgainst: dto.points_suffered,
-    avgPointsFor: dto.avg_points_made,
-    avgPointsAgainst: dto.avg_points_suffered,
-    playoffQualified: dto.play_off_qualified,
-    relegation: dto.relegation,
-    movement: dto.movement,
-  };
 }
 
 function toMatchStatus(gameStatus: string): MatchStatus {
@@ -90,7 +65,7 @@ function toCoach(dto: CoachDto): Coach {
   };
 }
 
-export function toRosterPlayer(dto: RosterPlayerDto, team: TeamRef): Player {
+function toRosterPlayer(dto: RosterPlayerDto, team: TeamRef): Player {
   return {
     id: dto.id,
     firstName: dto.name,
@@ -117,167 +92,52 @@ export function toRoster(dto: RosterResponseDto): Roster {
   };
 }
 
-export function toPlayer(dto: PlayerDto): Player {
+function toGameStats(dto: BoxScoreStatsDto): GameStats {
+  const off = n(dto.rimbalzi_o);
+  const def = n(dto.rimbalzi_d);
   return {
-    id: dto.id,
-    firstName: dto.name,
-    lastName: dto.surname,
-    number: dto.player_number ?? '-',
-    role: dto.player_role_description ?? '',
-    country: dto.player_country_name ?? '',
-    birthDate: dto.birth_date,
-    birthPlace: dto.place_of_birth,
-    heightCm: dto.height,
-    weightKg: dto.weight,
-    photoUrl: imageUrl(dto.photo_picture_key),
-    teamId: dto.team_id,
-    teamName: dto.team_name,
-  };
-}
-
-export function toStatLine(row: StatRowDto | undefined | null): StatLine | null {
-  if (!row) return null;
-  const off = n(row.offensive_rebound);
-  const def = n(row.defensive_rebound);
-  return {
-    points: n(row.points),
-    minutes: n(row.played_minutes),
-    matches: n(row.played_matches),
-    twoMade: n(row.shots_2p_realized),
-    twoAttempted: n(row.shots_2p_total),
-    threeMade: n(row.shots_3p_realized),
-    threeAttempted: n(row.shots_3p_total),
-    freeThrowsMade: n(row.free_throws_realized),
-    freeThrowsAttempted: n(row.free_throws_total),
+    minutes: n(dto.min),
+    points: n(dto.pun),
+    fouls: n(dto.falli_c),
+    foulsDrawn: n(dto.falli_sf),
+    twoMade: n(dto.t2_r),
+    twoAttempted: n(dto.t2_t),
+    threeMade: n(dto.t3_r),
+    threeAttempted: n(dto.t3_t),
+    freeThrowsMade: n(dto.tl_r),
+    freeThrowsAttempted: n(dto.tl_t),
     offensiveRebounds: off,
     defensiveRebounds: def,
-    totalRebounds: row.total_rebound ?? off + def,
-    assists: n(row.assists),
-    steals: n(row.regain_balls),
-    turnovers: n(row.lost_balls),
-    blocks: n(row.ball_stop_given),
-    fouls: n(row.done_fouls),
-    rating: n(row.rating_lega),
+    totalRebounds: dto.rimbalzi_t ?? off + def,
+    assists: n(dto.ass),
+    steals: n(dto.palle_r),
+    turnovers: n(dto.palle_p),
+    blocks: n(dto.stoppate_dat),
+    blocksAgainst: n(dto.stoppate_sub),
+    rating: n(dto.val_lega),
   };
 }
 
-export function toGameLogEntry(row: GameLogRowDto): GameLogEntry {
-  const isHome = row.player_team_id === row.home_team_id;
-  const teamScore = isHome ? row.home_score : row.visitor_score;
-  const opponentScore = isHome ? row.visitor_score : row.home_score;
+function toBoxScorePlayer(row: BoxScoreRowDto): BoxScorePlayer {
   return {
-    matchId: row.championship_match_id,
-    date: new Date(row.match_date),
-    opponentName: isHome ? row.visitor_team_name : row.home_team_name,
-    opponentLogoUrl: imageUrl(isHome ? row.visitor_team_logo_key : row.home_team_logo_key),
-    isHome,
-    teamScore,
-    opponentScore,
-    won: teamScore > opponentScore,
-    line: { ...(toStatLine(row) as StatLine), matches: 1 },
+    id: row.player_id,
+    firstName: row.player_name,
+    lastName: row.player_surname,
+    number: row.player_num === null || row.player_num === undefined ? '-' : String(row.player_num),
+    photoUrl: imageUrl(row.player_p_key),
+    starter: String(row.sf) === '1',
+    plusMinus: n(row.plus_minus),
+    stats: toGameStats(row),
   };
 }
 
-export function toPlayerProfile(
-  player: PlayerDto,
-  stats: { avg?: StatRowDto[] | null; max?: StatRowDto[] | null; sum?: StatRowDto[] | null } | null,
-  gameLog: GameLogRowDto[],
-  seasonYear: number,
-): PlayerProfile {
+function toBoxScoreSide(dto: BoxScoreSideDto | null | undefined): BoxScoreSide {
   return {
-    player: toPlayer(player),
-    seasonYear,
-    averages: toStatLine(stats?.avg?.[0]),
-    highs: toStatLine(stats?.max?.[0]),
-    totals: toStatLine(stats?.sum?.[0]),
-    gameLog: gameLog
-      .map(toGameLogEntry)
-      .sort((a, b) => b.date.getTime() - a.date.getTime()),
+    players: (dto?.rows ?? []).map(toBoxScorePlayer),
+    totals: toGameStats(dto?.totals ?? ({} as BoxScoreStatsDto)),
   };
 }
 
-function toBoxScoreLine(row: BoxScoreRowDto): StatLine {
-  const off = n(row.rimbalzi_o);
-  const def = n(row.rimbalzi_d);
-  return {
-    points: n(row.pun),
-    minutes: n(row.min),
-    matches: 1,
-    twoMade: n(row.t2_r),
-    twoAttempted: n(row.t2_t),
-    threeMade: n(row.t3_r),
-    threeAttempted: n(row.t3_t),
-    freeThrowsMade: n(row.tl_r),
-    freeThrowsAttempted: n(row.tl_t),
-    offensiveRebounds: off,
-    defensiveRebounds: def,
-    totalRebounds: row.rimbalzi_t ?? off + def,
-    assists: n(row.ass),
-    steals: n(row.palle_r),
-    turnovers: n(row.palle_p),
-    blocks: n(row.stoppate_dat),
-    fouls: n(row.falli_c),
-    rating: n(row.val_lega),
-  };
-}
-
-function toBoxScoreSide(rows: BoxScoreRowDto[] | null | undefined): Record<number, StatLine> {
-  const side: Record<number, StatLine> = {};
-  for (const row of rows ?? []) side[row.player_id] = toBoxScoreLine(row);
-  return side;
-}
-
-export function toBoxScore(dto: BoxScoreResponseDto): BoxScore {
-  return { home: toBoxScoreSide(dto.scores?.ht?.rows), away: toBoxScoreSide(dto.scores?.vt?.rows) };
-}
-
-const num = (value: string | number | null | undefined): number => Number(value ?? 0) || 0;
-
-function shotPercent(made: number, attempted: number): number | null {
-  return attempted > 0 ? (made / attempted) * 100 : null;
-}
-
-export function toTeamSeasonStats(dto: TeamStatsResponseDto): TeamSeasonStats | null {
-  const row = dto.stats?.[0];
-  if (!row) return null;
-  const cat = dto.rnk_sum?.cat;
-  const standing = dto.rnk_sum?.r_s;
-  return {
-    position: standing?.pos ?? null,
-    leaguePoints: standing?.points ?? 0,
-    wins: standing?.mw ?? 0,
-    losses: standing?.ml ?? 0,
-    pointsRank: cat?.points?.pos ?? null,
-    reboundsRank: cat?.total_rebound?.pos ?? null,
-    assistsRank: cat?.assists?.pos ?? null,
-    avgPoints: num(row.points_avg),
-    avgOffensiveRebounds: num(row.offensive_rebound_avg),
-    avgDefensiveRebounds: num(row.defensive_rebound_avg),
-    avgAssists: num(row.assists_avg),
-    avgSteals: num(row.regain_balls_avg),
-    avgBlocks: num(row.ball_stop_given_avg),
-    avgTurnovers: num(row.lost_balls_avg),
-    avgFouls: num(row.done_fouls_avg),
-    avgRating: num(row.rating_lega_avg),
-    twoPercent: shotPercent(num(row.shots_2p_realized_sum), num(row.shots_2p_total_sum)),
-    threePercent: shotPercent(num(row.shots_3p_realized_sum), num(row.shots_3p_total_sum)),
-    freeThrowPercent: shotPercent(num(row.free_throws_realized_sum), num(row.free_throws_total_sum)),
-  };
-}
-
-/** Partita conclusa dal punto di vista della squadra; null se il punteggio non c'è ancora. */
-export function toTeamResult(dto: TeamMatchStatsDto): TeamResult | null {
-  if (dto.home_final_score === null || dto.visitor_final_score === null) return null;
-  const isHome = dto.side === 'h';
-  const teamScore = isHome ? dto.home_final_score : dto.visitor_final_score;
-  const opponentScore = isHome ? dto.visitor_final_score : dto.home_final_score;
-  return {
-    matchId: dto.championships_match_id,
-    date: new Date(dto.match_datetime),
-    opponentName: dto.opponent_name,
-    isHome,
-    teamScore,
-    opponentScore,
-    won: teamScore > opponentScore,
-  };
+export function toMatchBoxScore(dto: BoxScoreResponseDto): MatchBoxScore {
+  return { home: toBoxScoreSide(dto.scores?.ht), away: toBoxScoreSide(dto.scores?.vt) };
 }

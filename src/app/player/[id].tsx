@@ -1,22 +1,24 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useCases } from '../../di/container';
-import { GameLogEntry, PlayerProfile } from '../../domain/entities';
+import { GameLogEntry, LeagueRanks, PlayerProfile, RankedStat } from '../../domain/entities';
 import { resolveImageSource } from '../../infrastructure/images';
 import { SectionTitle } from '../../presentation/components/SectionTitle';
 import { Empty, ErrorView, Loading } from '../../presentation/components/StateViews';
 import { StatTile } from '../../presentation/components/StatTile';
 import { TeamLogo } from '../../presentation/components/TeamLogo';
 import { useAsync } from '../../presentation/hooks/useAsync';
+import { useDataVersion } from '../../presentation/hooks/useSync';
 import { colors, fonts, radius } from '../../presentation/theme';
 import { ageFrom, formatDayMonth, one, percent } from '../../presentation/theme/format';
 
 export default function PlayerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const profile = useAsync(() => useCases.getPlayerProfile.execute(Number(id)), [id]);
+  const dataVersion = useDataVersion();
+  const profile = useAsync(() => useCases.getPlayerProfile.execute(Number(id)), [id, dataVersion]);
 
   if (profile.loading) return <Loading label="Carico le statistiche…" />;
   if (profile.error || !profile.data) return <ErrorView onRetry={profile.reload} />;
@@ -24,7 +26,14 @@ export default function PlayerScreen() {
 }
 
 function Profile({ profile }: { profile: PlayerProfile }) {
-  const { player, averages: a, highs, totals, gameLog } = profile;
+  const { player, averages: a, highs, totals, ranks, gameLog } = profile;
+  const router = useRouter();
+  const rank = (stat: RankedStat) => ({
+    hint: hint(ranks, stat),
+    onPress: ranks[stat]
+      ? () => router.push({ pathname: '/ranking/[stat]', params: { stat, player: String(player.id) } })
+      : undefined,
+  });
   const age = ageFrom(player.birthDate);
   const season = `${profile.seasonYear}/${String(profile.seasonYear + 1).slice(2)}`;
 
@@ -58,24 +67,24 @@ function Profile({ profile }: { profile: PlayerProfile }) {
       {a ? (
         <View style={{ paddingHorizontal: 16, gap: 10 }}>
           <View style={styles.tiles}>
-            <StatTile big label="PUNTI" value={one(a.points)} accent={colors.orange} />
-            <StatTile big label="RIMBALZI" value={one(a.totalRebounds)} accent={colors.cyan} />
-            <StatTile big label="ASSIST" value={one(a.assists)} accent={colors.pink} />
+            <StatTile big label="PUNTI" value={one(a.points)} {...rank('points')} accent={colors.orange} />
+            <StatTile big label="RIMBALZI" value={one(a.totalRebounds)} {...rank('totalRebounds')} accent={colors.cyan} />
+            <StatTile big label="ASSIST" value={one(a.assists)} {...rank('assists')} accent={colors.pink} />
           </View>
           <View style={styles.tiles}>
-            <StatTile label="VAL" value={one(a.rating)} accent={colors.yellow} />
-            <StatTile label="MIN" value={one(a.minutes)} accent={colors.text} />
+            <StatTile label="VAL" value={one(a.rating)} {...rank('rating')} accent={colors.yellow} />
+            <StatTile label="MIN" value={one(a.minutes)} {...rank('minutes')} accent={colors.text} />
             <StatTile label="PARTITE" value={String(totals?.matches ?? a.matches)} accent={colors.text} />
           </View>
           <View style={styles.tiles}>
-            <StatTile label="2P%" value={percent(a.twoMade, a.twoAttempted)} accent={colors.green} />
-            <StatTile label="3P%" value={percent(a.threeMade, a.threeAttempted)} accent={colors.green} />
-            <StatTile label="TL%" value={percent(a.freeThrowsMade, a.freeThrowsAttempted)} accent={colors.green} />
+            <StatTile label="2P%" value={percent(a.twoMade, a.twoAttempted)} {...rank('twoPercent')} accent={colors.green} />
+            <StatTile label="3P%" value={percent(a.threeMade, a.threeAttempted)} {...rank('threePercent')} accent={colors.green} />
+            <StatTile label="TL%" value={percent(a.freeThrowsMade, a.freeThrowsAttempted)} {...rank('freeThrowPercent')} accent={colors.green} />
           </View>
           <View style={styles.tiles}>
-            <StatTile label="RUBATE" value={one(a.steals)} accent={colors.cyan} />
-            <StatTile label="STOPPATE" value={one(a.blocks)} accent={colors.cyan} />
-            <StatTile label="PERSE" value={one(a.turnovers)} accent={colors.red} />
+            <StatTile label="RUBATE" value={one(a.steals)} {...rank('steals')} accent={colors.cyan} />
+            <StatTile label="STOPPATE" value={one(a.blocks)} {...rank('blocks')} accent={colors.cyan} />
+            <StatTile label="PERSE" value={one(a.turnovers)} {...rank('turnovers')} accent={colors.red} />
           </View>
         </View>
       ) : (
@@ -98,6 +107,11 @@ function Profile({ profile }: { profile: PlayerProfile }) {
       {gameLog.length > 0 ? gameLog.map((g) => <GameRow key={g.matchId} game={g} />) : <Empty text="Ancora nessuna partita giocata." />}
     </ScrollView>
   );
+}
+
+function hint(ranks: LeagueRanks, stat: RankedStat): string | undefined {
+  const r = ranks[stat];
+  return r ? `${r.position}° / ${r.of}` : undefined;
 }
 
 function Bio({ icon, text }: { icon: keyof typeof Ionicons.glyphMap; text: string }) {

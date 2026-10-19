@@ -10,19 +10,22 @@ import { Empty, ErrorView, Loading } from '../presentation/components/StateViews
 import { StandingsTable } from '../presentation/components/StandingsTable';
 import { useOpenMatch } from '../presentation/hooks/useOpenMatch';
 import { useAsync } from '../presentation/hooks/useAsync';
+import { useDataVersion } from '../presentation/hooks/useSync';
 import { colors, fonts, radius } from '../presentation/theme';
 
 export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const cardWidth = Math.min(width * 0.82, 340);
 
-  const standings = useAsync(() => useCases.getStandings.execute());
-  const matches = useAsync(() => useCases.getCurrentRound.execute());
+  const dataVersion = useDataVersion();
+  const standings = useAsync(() => useCases.getStandings.execute(), [dataVersion]);
+  const matches = useAsync(() => useCases.getCurrentRound.execute(), [dataVersion]);
 
   const refreshing = standings.refreshing || matches.refreshing;
   const reloadAll = () => {
     standings.reload();
     matches.reload();
+    void useCases.sync.start();
   };
 
   const openMatch = useOpenMatch();

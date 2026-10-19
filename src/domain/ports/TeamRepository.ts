@@ -1,12 +1,8 @@
 import { Roster, TeamResult } from '../entities';
 
-/** Statistiche di squadra grezze, come le espone la Lega. */
+/** Medie stagionali di squadra, calcolate dai box score salvati. */
 export interface TeamSeasonStats {
-  position: number | null;
-  leaguePoints: number;
-  wins: number;
-  losses: number;
-  /** Posizioni nelle classifiche di squadra che la Lega pubblica per tutte le squadre. */
+  /** Posizione tra le squadre del campionato (1 = migliore) in alcune classifiche statistiche. */
   pointsRank: number | null;
   reboundsRank: number | null;
   assistsRank: number | null;

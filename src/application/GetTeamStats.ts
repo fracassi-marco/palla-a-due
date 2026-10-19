@@ -57,8 +57,8 @@ export class GetTeamStats {
     return {
       teamId,
       seasonYear,
-      position: own?.position ?? season.position,
-      leaguePoints: own?.points ?? season.leaguePoints,
+      position: own?.position ?? null,
+      leaguePoints: own?.points ?? 2 * wins,
       played,
       wins,
       losses: played - wins,

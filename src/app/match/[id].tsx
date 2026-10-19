@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useCases } from '../../di/container';
 import { MatchStatus, Roster, StatLine } from '../../domain/entities';
@@ -8,6 +8,7 @@ import { Empty, ErrorView, Loading } from '../../presentation/components/StateVi
 import { TeamLogo } from '../../presentation/components/TeamLogo';
 import { useOpenTeam } from '../../presentation/hooks/useOpenTeam';
 import { useAsync } from '../../presentation/hooks/useAsync';
+import { useDataVersion } from '../../presentation/hooks/useSync';
 import { usePolling } from '../../presentation/hooks/usePolling';
 import { colors, fonts, radius } from '../../presentation/theme';
 import { formatDayMonth, formatTime, formatWeekday } from '../../presentation/theme/format';
@@ -23,16 +24,18 @@ export default function MatchScreen() {
   const openTeam = useOpenTeam();
   const [side, setSide] = useState<'home' | 'away'>('home');
 
+  const dataVersion = useDataVersion();
+  const matchId = Number(p.id);
   const teamId = Number(side === 'home' ? p.homeId : p.awayId);
-  const roster = useAsync(() => useCases.getTeamRoster.execute(teamId), [teamId]);
+  const roster = useAsync(() => useCases.getTeamRoster.execute(teamId), [teamId, dataVersion]);
 
   const startsAt = useMemo(() => new Date(p.startsAt), [p.startsAt]);
   const dayNumber = Number(p.day);
 
-  // Stato e punteggio partono dai parametri di navigazione e poi si aggiornano dal calendario.
+  // Stato e punteggio partono dai parametri di navigazione e poi si aggiornano dal database.
   const matchState = useAsync(
-    () => (dayNumber > 0 ? useCases.getMatch.execute(Number(p.id), dayNumber) : Promise.resolve(null)),
-    [p.id, dayNumber],
+    () => (dayNumber > 0 ? useCases.getMatch.execute(matchId, dayNumber) : Promise.resolve(null)),
+    [matchId, dayNumber, dataVersion],
   );
   const status = matchState.data?.status ?? (p.status as MatchStatus);
   const homeScore = matchState.data ? (matchState.data.homeScore ?? '') : p.homeScore;
@@ -41,17 +44,20 @@ export default function MatchScreen() {
   const live = status === 'live';
 
   const boxScore = useAsync(
-    () => (played ? useCases.getMatchBoxScore.execute(Number(p.id), { status, startsAt }) : Promise.resolve(null)),
-    [p.id, played, status, startsAt],
+    () => (played ? useCases.getMatchBoxScore.execute(matchId) : Promise.resolve(null)),
+    [matchId, played, dataVersion],
   );
-  const reloadMatch = matchState.reload;
-  const reloadBoxScore = boxScore.reload;
+
+  // All'apertura si scarica solo ciò che il database non ha (nulla per una partita conclusa e già salvata).
+  useEffect(() => {
+    useCases.sync.refreshMatch(matchId).catch(() => {});
+  }, [matchId]);
+
   const refreshLive = useCallback(() => {
     // Prima della palla a due si aggiorna solo nell'ultima mezz'ora, per accorgersi dell'inizio.
     if (!played && startsAt.getTime() - Date.now() > PRE_GAME_WINDOW_MS) return;
-    reloadMatch();
-    if (played) reloadBoxScore();
-  }, [reloadMatch, reloadBoxScore, played, startsAt]);
+    useCases.sync.refreshMatch(matchId, true).catch(() => {});
+  }, [matchId, played, startsAt]);
   usePolling(refreshLive, status !== 'finished', LIVE_REFRESH_MS);
   const stats = boxScore.data ? boxScore.data[side] : undefined;
 
