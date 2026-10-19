@@ -11,14 +11,14 @@ import { Empty, ErrorView, Loading } from '../../presentation/components/StateVi
 import { StatTile } from '../../presentation/components/StatTile';
 import { TeamLogo } from '../../presentation/components/TeamLogo';
 import { useAsync } from '../../presentation/hooks/useAsync';
-import { useDataVersion } from '../../presentation/hooks/useSync';
+import { useStatsVersion } from '../../presentation/hooks/useSync';
 import { colors, fonts, radius } from '../../presentation/theme';
 import { ageFrom, formatDayMonth, one, percent } from '../../presentation/theme/format';
 
 export default function PlayerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const dataVersion = useDataVersion();
-  const profile = useAsync(() => useCases.getPlayerProfile.execute(Number(id)), [id, dataVersion]);
+  const statsVersion = useStatsVersion();
+  const profile = useAsync(() => useCases.getPlayerProfile.execute(Number(id)), [id, statsVersion]);
 
   if (profile.loading) return <Loading label="Carico le statistiche…" />;
   if (profile.error || !profile.data) return <ErrorView onRetry={profile.reload} />;

@@ -22,10 +22,13 @@ export function useAsync<T>(loader: () => Promise<T>, deps: unknown[] = []): Asy
     firstRun.current = false;
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
-    setError(null);
 
     loader()
-      .then((result) => !cancelled && setData(result))
+      .then((result) => {
+        if (cancelled) return;
+        setData(result);
+        setError(null);
+      })
       .catch((e: Error) => !cancelled && setError(e))
       .finally(() => {
         if (cancelled) return;

@@ -39,7 +39,7 @@ WHERE t.games >= 3 ORDER BY ppg DESC LIMIT 10;
 |---|---|---|
 | `get-championships?s=` | Solo se la stagione non è nel database | Una volta |
 | `get-championships-calendar-by-id?id=&d=` | Giornata mai scaricata, oppure non conclusa e scaduta (vedi sotto) | Quando tutte le sue partite sono `finished` |
-| `get-championships-matches-scores-by-id?id=` | Partita conclusa senza box score, o con box score non definitivo | Box score scaricato a partita conclusa da oltre 3 ore dalla palla a due con almeno un giocatore |
+| `get-championships-matches-scores-by-id?id=` | Partita conclusa senza box score, o con box score non definitivo; per una partita live, a ogni refresh, senza salvarlo | Box score scaricato a partita conclusa da oltre 3 ore dalla palla a due con almeno un giocatore |
 | `get-team-roster?id=` | Squadra senza roster, o con un giocatore sconosciuto sceso in campo dopo l'ultimo download | Finché non compaiono giocatori nuovi |
 
 Validità di una giornata non conclusa (`dayTtl`): 15 s se ha una partita live; altrimenti il tempo alla prima palla a due,
@@ -67,7 +67,8 @@ Non vengono più chiamati: classifica, statistiche squadra, statistiche giocator
 `SyncLeague` espone uno stato (`useSyncState`): la barra in fondo allo schermo mostra fase e avanzamento
 (`Calendario`, `Statistiche delle partite`, `Roster`). Al primissimo avvio, finché il calendario non è completo,
 una schermata dedicata prende il posto dell'app. `useDataVersion` cambia (al più una volta al secondo) quando arrivano
-dati nuovi: le schermate lo usano come dipendenza di `useAsync` e si rileggono dal database.
+dati nuovi: le schermate lo usano come dipendenza di `useAsync` e si rileggono dal database. `statsVersion` aumenta solo
+quando si salva un box score o un roster: lo usano classifica statistica e profilo giocatore, che sono le letture più pesanti.
 
 Ogni elemento è salvato appena arriva: una sincronizzazione interrotta riparte da dove era. Un elemento che fallisce
 non ferma gli altri e viene ritentato alla sincronizzazione successiva.
@@ -75,5 +76,6 @@ non ferma gli altri e viene ritentato alla sincronizzazione successiva.
 ## Partite live
 
 La schermata partita chiama `refreshMatch(id, true)` ogni 30 s mentre la partita è live (e nell'ultima mezz'ora prima):
-riscarica la giornata e il box score. I box score live sono salvati ma non contano nelle statistiche finché la partita
-non è `finished`.
+riscarica la giornata e il box score. Il box score live **non viene salvato**: `refreshMatch` lo restituisce e la schermata
+lo tiene in memoria, così le statistiche di giocatori e squadre cambiano solo a partita conclusa. Quando la partita
+diventa `finished` il box score viene scaricato e salvato come per le altre partite concluse.

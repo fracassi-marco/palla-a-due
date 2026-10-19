@@ -9,7 +9,7 @@ import { resolveImageSource } from '../../infrastructure/images';
 import { Empty, ErrorView, Loading } from '../../presentation/components/StateViews';
 import { useFavoriteTeamId } from '../../presentation/hooks/useFavoriteTeam';
 import { useAsync } from '../../presentation/hooks/useAsync';
-import { useDataVersion } from '../../presentation/hooks/useSync';
+import { useStatsVersion } from '../../presentation/hooks/useSync';
 import { colors, fonts, radius } from '../../presentation/theme';
 import { one } from '../../presentation/theme/format';
 
@@ -33,14 +33,14 @@ const STATS: Record<RankedStat, { title: string; unit: string; percent?: boolean
 export default function RankingScreen() {
   const params = useLocalSearchParams<{ stat: string; player?: string }>();
   const router = useRouter();
-  const dataVersion = useDataVersion();
+  const statsVersion = useStatsVersion();
   const stat = isRankedStat(params.stat) ? params.stat : null;
   const highlightId = params.player ? Number(params.player) : null;
   const favoriteId = useFavoriteTeamId();
   const [onlyFavorite, setOnlyFavorite] = useState(false);
   const ranking = useAsync(
     () => (stat ? useCases.getLeagueRanking.execute(stat) : Promise.resolve([])),
-    [stat, dataVersion],
+    [stat, statsVersion],
   );
 
   if (!stat) return <Empty text="Statistica sconosciuta." />;

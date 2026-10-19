@@ -2,7 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useCases } from '../../di/container';
-import { MatchStatus, Roster, StatLine } from '../../domain/entities';
+import { BoxScore, MatchStatus, Roster, StatLine } from '../../domain/entities';
 import { PlayerRow } from '../../presentation/components/PlayerRow';
 import { Empty, ErrorView, Loading } from '../../presentation/components/StateViews';
 import { TeamLogo } from '../../presentation/components/TeamLogo';
@@ -43,23 +43,35 @@ export default function MatchScreen() {
   const played = status !== 'scheduled';
   const live = status === 'live';
 
+  // Le statistiche di una partita conclusa vengono dal database; quelle di una partita live non vengono salvate
+  // (contano solo a partita conclusa) e restano qui, aggiornate dal polling.
+  const [liveBox, setLiveBox] = useState<BoxScore | null>(null);
   const boxScore = useAsync(
-    () => (played ? useCases.getMatchBoxScore.execute(matchId) : Promise.resolve(null)),
-    [matchId, played, dataVersion],
+    () => (played && !live ? useCases.getMatchBoxScore.execute(matchId) : Promise.resolve(null)),
+    [matchId, played, live, dataVersion],
+  );
+
+  const refresh = useCallback(
+    (force: boolean) => {
+      useCases.sync
+        .refreshMatch(matchId, force)
+        .then((box) => box && setLiveBox(box))
+        .catch(() => {});
+    },
+    [matchId],
   );
 
   // All'apertura si scarica solo ciò che il database non ha (nulla per una partita conclusa e già salvata).
-  useEffect(() => {
-    useCases.sync.refreshMatch(matchId).catch(() => {});
-  }, [matchId]);
+  useEffect(() => refresh(false), [refresh]);
 
   const refreshLive = useCallback(() => {
     // Prima della palla a due si aggiorna solo nell'ultima mezz'ora, per accorgersi dell'inizio.
     if (!played && startsAt.getTime() - Date.now() > PRE_GAME_WINDOW_MS) return;
-    useCases.sync.refreshMatch(matchId, true).catch(() => {});
-  }, [matchId, played, startsAt]);
+    refresh(true);
+  }, [refresh, played, startsAt]);
   usePolling(refreshLive, status !== 'finished', LIVE_REFRESH_MS);
-  const stats = boxScore.data ? boxScore.data[side] : undefined;
+  // Alla fine della partita le statistiche live restano a schermo finché non sono state rilette dal database.
+  const stats = (boxScore.data ?? liveBox)?.[side];
 
   return (
     <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>

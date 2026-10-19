@@ -255,7 +255,7 @@ Una riga per squadra per partita, con i totali ufficiali. Ha le stesse colonne s
 
 ## Viste
 
-Non contengono dati: sono query salvate sulle tabelle sopra. Considerano solo partite con `status = 'finished'`, così i box score parziali delle partite live non entrano nei conteggi.
+Non contengono dati: sono query salvate sulle tabelle sopra. Considerano solo partite con `status = 'finished'`, così i dati di partite non concluse non entrano nei conteggi (i box score live non vengono comunque salvati).
 
 | Vista | Una riga è… | Costruita da |
 |---|---|---|

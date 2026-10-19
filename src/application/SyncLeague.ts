@@ -1,4 +1,5 @@
-import { Match, MatchBoxScore } from '../domain/entities';
+import { toBoxScore } from '../domain/boxScore';
+import { BoxScore, Match, MatchBoxScore } from '../domain/entities';
 import { DaySyncState, LeagueSource, LeagueStore, MatchSyncInfo } from '../domain/ports';
 import { PoolResult, runPool, withRetry } from './pool';
 import { currentSeasonYear } from './season';
@@ -29,6 +30,8 @@ export interface SyncState {
   ready: boolean | null;
   /** Aumenta quando il database riceve dati nuovi: le schermate lo usano per rileggere. */
   dataVersion: number;
+  /** Aumenta solo quando cambiano statistiche o anagrafica dei giocatori (box score e roster salvati): per le schermate che le mostrano. */
+  statsVersion: number;
   error: string | null;
 }
 
@@ -63,12 +66,15 @@ export class SyncLeague {
     total: 0,
     ready: null,
     dataVersion: 0,
+    statsVersion: 0,
     error: null,
   };
   private readonly listeners = new Set<() => void>();
   private running: Promise<void> | null = null;
   private lastFinishedAt = 0;
   private lastNotifiedAt = 0;
+  /** Un box score o un roster è stato salvato dall'ultima notifica: la prossima alzerà anche `statsVersion`. */
+  private statsDirty = false;
 
   constructor(
     private readonly source: LeagueSource,
@@ -100,21 +106,30 @@ export class SyncLeague {
   /**
    * Aggiorna una partita: giornata (se serve) e box score (se non è già definitivo).
    * Con `force` la giornata viene riscaricata anche se ancora valida: serve al polling live.
+   * Il box score di una partita live non viene salvato (le statistiche contano solo a partita conclusa):
+   * è restituito, perché la schermata lo mostri. Per le altre partite il risultato è null.
    */
-  async refreshMatch(matchId: number, force = false): Promise<void> {
+  async refreshMatch(matchId: number, force = false): Promise<BoxScore | null> {
     let info = await this.store.getMatchSyncInfo(matchId);
-    if (!info) return;
+    if (!info) return null;
 
     if (info.status !== 'finished') {
       const days = await this.store.getDaySyncStates(info.competitionId);
       if (force || dayIsStale(days.find((d) => d.dayNumber === info!.dayNumber), Date.now())) {
         await this.fetchDay(info.competitionId, info.dayNumber);
         info = await this.store.getMatchSyncInfo(matchId);
-        if (!info) return;
+        if (!info) return null;
       }
     }
-    if (info.status !== 'scheduled' && !info.boxScoreFinal) await this.fetchBoxScore(info);
+
+    let live: BoxScore | null = null;
+    if (info.status === 'live') {
+      live = toBoxScore(await withRetry(() => this.source.getBoxScore(info!.id)));
+    } else if (info.status === 'finished' && !info.boxScoreFinal) {
+      await this.fetchBoxScore(info);
+    }
     this.notify(true);
+    return live;
   }
 
   private async execute(): Promise<void> {
@@ -203,6 +218,7 @@ export class SyncLeague {
     return runPool(teamIds, CONCURRENCY, async (teamId) => {
       const roster = await withRetry(() => this.source.getRoster(teamId));
       await this.store.saveRoster(roster, Date.now());
+      this.statsDirty = true;
       this.progress();
     });
   }
@@ -218,6 +234,7 @@ export class SyncLeague {
     const now = Date.now();
     const final = info.status === 'finished' && hasPlayers(box) && now > info.startsAt.getTime() + SETTLE_MARGIN_MS;
     await this.store.saveBoxScore(info.id, box, final, now);
+    this.statsDirty = true;
   }
 
   private progress() {
@@ -235,6 +252,8 @@ export class SyncLeague {
     const now = Date.now();
     if (!force && now - this.lastNotifiedAt < NOTIFY_INTERVAL_MS) return;
     this.lastNotifiedAt = now;
-    this.update({ dataVersion: this.state.dataVersion + 1 });
+    const statsVersion = this.state.statsVersion + (this.statsDirty ? 1 : 0);
+    this.statsDirty = false;
+    this.update({ dataVersion: this.state.dataVersion + 1, statsVersion });
   }
 }
