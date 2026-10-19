@@ -1,11 +1,13 @@
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { FlatList, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { useCases } from '../../di/container';
 import { LeagueRankingEntry, RankedStat } from '../../domain/entities';
 import { isRankedStat } from '../../domain/statLines';
 import { resolveImageSource } from '../../infrastructure/images';
 import { Empty, ErrorView, Loading } from '../../presentation/components/StateViews';
+import { useFavoriteTeamId } from '../../presentation/hooks/useFavoriteTeam';
 import { useAsync } from '../../presentation/hooks/useAsync';
 import { useDataVersion } from '../../presentation/hooks/useSync';
 import { colors, fonts, radius } from '../../presentation/theme';
@@ -34,6 +36,8 @@ export default function RankingScreen() {
   const dataVersion = useDataVersion();
   const stat = isRankedStat(params.stat) ? params.stat : null;
   const highlightId = params.player ? Number(params.player) : null;
+  const favoriteId = useFavoriteTeamId();
+  const [onlyFavorite, setOnlyFavorite] = useState(false);
   const ranking = useAsync(
     () => (stat ? useCases.getLeagueRanking.execute(stat) : Promise.resolve([])),
     [stat, dataVersion],
@@ -44,10 +48,24 @@ export default function RankingScreen() {
   if (ranking.error || !ranking.data) return <ErrorView onRetry={ranking.reload} />;
 
   const { title, unit, percent } = STATS[stat];
-  const entries = ranking.data;
+  // Con il filtro le posizioni restano quelle della lega.
+  const filtering = onlyFavorite && favoriteId !== null;
+  const entries = filtering ? ranking.data.filter((e) => e.player.teamId === favoriteId) : ranking.data;
   const highlightIndex = entries.findIndex((e) => e.player.id === highlightId);
 
   return (
+    <View style={styles.root}>
+    {favoriteId !== null ? (
+      <View style={styles.filter}>
+        <Text style={styles.filterLabel}>SOLO LA MIA SQUADRA</Text>
+        <Switch
+          value={onlyFavorite}
+          onValueChange={setOnlyFavorite}
+          trackColor={{ false: colors.border, true: colors.orange }}
+          thumbColor={colors.text}
+        />
+      </View>
+    ) : null}
     <FlatList
       data={entries}
       keyExtractor={(e) => String(e.player.id)}
@@ -71,6 +89,7 @@ export default function RankingScreen() {
       initialScrollIndex={highlightIndex > 2 ? highlightIndex - 2 : undefined}
       contentContainerStyle={{ paddingBottom: 40 }}
     />
+    </View>
   );
 }
 
@@ -96,6 +115,9 @@ function Row({ entry, percent, highlighted, onPress }: { entry: LeagueRankingEnt
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1 },
+  filter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: 16, marginTop: 4, paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.md, backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.border },
+  filterLabel: { color: colors.textMuted, fontFamily: fonts.condensed, fontSize: 14, letterSpacing: 1.2 },
   header: { height: HEADER_HEIGHT, paddingHorizontal: 16, justifyContent: 'center' },
   title: { color: colors.text, fontFamily: fonts.display, fontSize: 32 },
   unit: { color: colors.textMuted, fontFamily: fonts.condensed, fontSize: 12, letterSpacing: 1.2 },

@@ -41,13 +41,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Prebuild Android project
+      - name: Set app version from tag
         run: |
-          # Con un tag vX.Y.Z la versione dell'app diventa X.Y.Z
+          # Con un tag vX.Y.Z la versione dell'app diventa X.Y.Z (serve a prebuild e a Gradle,
+          # che rigenera l'app.config incorporato letto da Constants.expoConfig)
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            export APP_VERSION="${GITHUB_REF_NAME#v}"
+            echo "APP_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
           fi
-          npx expo prebuild --platform android --no-install
+
+      - name: Prebuild Android project
+        run: npx expo prebuild --platform android --no-install
 
       - name: Enable Gradle build cache
         run: |
