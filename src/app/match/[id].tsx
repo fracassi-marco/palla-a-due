@@ -84,11 +84,26 @@ function RosterList({ roster, stats, onPlayer }: { roster: Roster; stats?: Recor
           <Text style={styles.coachName}>{roster.coach.firstName} {roster.coach.lastName}</Text>
         </View>
       ) : null}
-      {roster.players.map((pl) => (
+      {sortByPerformance(roster.players, stats).map((pl) => (
         <PlayerRow key={pl.id} player={pl} stats={stats ? (stats[pl.id] ?? undefined) : undefined} onPress={() => onPlayer(pl.id)} />
       ))}
     </View>
   );
+}
+
+function sortByPerformance<T extends { id: number }>(players: T[], stats?: Record<number, StatLine>): T[] {
+  if (!stats) return players;
+  return [...players].sort((a, b) => {
+    const sa = stats[a.id];
+    const sb = stats[b.id];
+    if (!sa || !sb) return sa ? -1 : sb ? 1 : 0;
+    return (
+      sb.points - sa.points ||
+      sb.assists - sa.assists ||
+      sb.totalRebounds - sa.totalRebounds ||
+      sb.minutes - sa.minutes
+    );
+  });
 }
 
 function Tab({ label, name, active, onPress }: { label: string; name: string; active: boolean; onPress: () => void }) {

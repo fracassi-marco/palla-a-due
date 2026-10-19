@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Player, StatLine } from '../../domain/entities';
+import { resolveImageSource } from '../../infrastructure/images';
 import { colors, fonts, radius } from '../theme';
 
 export function PlayerRow({ player, stats, onPress }: { player: Player; stats?: StatLine; onPress: () => void }) {
@@ -10,7 +11,7 @@ export function PlayerRow({ player, stats, onPress }: { player: Player; stats?: 
       <View style={styles.row}>
       <View style={styles.photoWrap}>
         {player.photoUrl ? (
-          <Image source={{ uri: player.photoUrl }} style={styles.photo} contentFit="cover" contentPosition="top" transition={150} />
+          <Image source={resolveImageSource(player.photoUrl)} style={styles.photo} contentFit="cover" contentPosition="top" transition={150} />
         ) : (
           <Ionicons name="person" size={28} color={colors.textMuted} />
         )}

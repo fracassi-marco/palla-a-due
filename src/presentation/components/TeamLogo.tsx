@@ -1,5 +1,6 @@
 import { Image } from 'expo-image';
 import { StyleSheet, Text, View } from 'react-native';
+import { resolveImageSource } from '../../infrastructure/images';
 import { colors, fonts } from '../theme';
 
 interface Props {
@@ -10,7 +11,7 @@ interface Props {
 
 export function TeamLogo({ uri, name, size = 40 }: Props) {
   if (uri) {
-    return <Image source={{ uri }} style={{ width: size, height: size }} contentFit="contain" transition={150} />;
+    return <Image source={resolveImageSource(uri)} style={{ width: size, height: size }} contentFit="contain" transition={150} />;
   }
   return (
     <View style={[styles.fallback, { width: size, height: size, borderRadius: size / 2 }]}>

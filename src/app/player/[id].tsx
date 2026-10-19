@@ -5,6 +5,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useCases } from '../../di/container';
 import { GameLogEntry, PlayerProfile } from '../../domain/entities';
+import { resolveImageSource } from '../../infrastructure/images';
 import { SectionTitle } from '../../presentation/components/SectionTitle';
 import { Empty, ErrorView, Loading } from '../../presentation/components/StateViews';
 import { StatTile } from '../../presentation/components/StatTile';
@@ -39,7 +40,7 @@ function Profile({ profile }: { profile: PlayerProfile }) {
         </View>
         <View style={styles.photoWrap}>
           {player.photoUrl ? (
-            <Image source={{ uri: player.photoUrl }} style={styles.photo} contentFit="cover" contentPosition="top" transition={200} />
+            <Image source={resolveImageSource(player.photoUrl)} style={styles.photo} contentFit="cover" contentPosition="top" transition={200} />
           ) : (
             <Ionicons name="person" size={64} color={colors.surfaceAlt} />
           )}
