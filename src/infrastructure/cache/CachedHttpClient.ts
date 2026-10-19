@@ -1,4 +1,4 @@
-import { HttpClient } from '../api/HttpClient';
+import { HttpClient, RequestOptions } from '../api/HttpClient';
 import { CacheStore } from './CacheStore';
 import { TtlPolicy } from './cachePolicy';
 
@@ -18,17 +18,17 @@ export class CachedHttpClient implements HttpClient {
     private readonly ttlPolicy: TtlPolicy,
   ) {}
 
-  get<T>(path: string, params: Params = {}): Promise<T> {
+  get<T>(path: string, params: Params = {}, options: RequestOptions = {}): Promise<T> {
     const key = cacheKey(path, params);
     const pending = this.inFlight.get(key);
     if (pending) return pending as Promise<T>;
 
-    const request = this.load<T>(key, path, params).finally(() => this.inFlight.delete(key));
+    const request = this.load<T>(key, path, params, options).finally(() => this.inFlight.delete(key));
     this.inFlight.set(key, request);
     return request;
   }
 
-  private async load<T>(key: string, path: string, params: Params): Promise<T> {
+  private async load<T>(key: string, path: string, params: Params, options: RequestOptions): Promise<T> {
     const cached = this.memory.get(key) ?? (await this.store.get(key));
     if (cached && cached.expiresAt > Date.now()) {
       this.memory.set(key, cached);
@@ -37,7 +37,7 @@ export class CachedHttpClient implements HttpClient {
 
     try {
       const data = await this.inner.get<T>(path, params);
-      const ttl = this.ttlPolicy(path, data);
+      const ttl = options.ttlMs ?? this.ttlPolicy(path, data);
       if (ttl > 0) {
         const entry = { data, expiresAt: Date.now() + ttl };
         this.memory.set(key, entry);

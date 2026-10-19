@@ -1,17 +1,21 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useCases } from '../../di/container';
-import { Roster, StatLine } from '../../domain/entities';
+import { MatchStatus, Roster, StatLine } from '../../domain/entities';
 import { PlayerRow } from '../../presentation/components/PlayerRow';
 import { Empty, ErrorView, Loading } from '../../presentation/components/StateViews';
 import { TeamLogo } from '../../presentation/components/TeamLogo';
 import { useOpenTeam } from '../../presentation/hooks/useOpenTeam';
 import { useAsync } from '../../presentation/hooks/useAsync';
+import { usePolling } from '../../presentation/hooks/usePolling';
 import { colors, fonts, radius } from '../../presentation/theme';
 import { formatDayMonth, formatTime, formatWeekday } from '../../presentation/theme/format';
 
-type Params = Record<'id' | 'homeId' | 'awayId' | 'homeName' | 'awayName' | 'homeLogo' | 'awayLogo' | 'startsAt' | 'status' | 'homeScore' | 'awayScore', string>;
+type Params = Record<'id' | 'day' | 'homeId' | 'awayId' | 'homeName' | 'awayName' | 'homeLogo' | 'awayLogo' | 'startsAt' | 'status' | 'homeScore' | 'awayScore', string>;
+
+const LIVE_REFRESH_MS = 30_000;
+const PRE_GAME_WINDOW_MS = 30 * 60_000;
 
 export default function MatchScreen() {
   const p = useLocalSearchParams<Params>();
@@ -22,20 +26,33 @@ export default function MatchScreen() {
   const teamId = Number(side === 'home' ? p.homeId : p.awayId);
   const roster = useAsync(() => useCases.getTeamRoster.execute(teamId), [teamId]);
 
-  const startsAt = new Date(p.startsAt);
-  const played = p.status !== 'scheduled';
-  const live = p.status === 'live';
+  const startsAt = useMemo(() => new Date(p.startsAt), [p.startsAt]);
+  const dayNumber = Number(p.day);
+
+  // Stato e punteggio partono dai parametri di navigazione e poi si aggiornano dal calendario.
+  const matchState = useAsync(
+    () => (dayNumber > 0 ? useCases.getMatch.execute(Number(p.id), dayNumber) : Promise.resolve(null)),
+    [p.id, dayNumber],
+  );
+  const status = matchState.data?.status ?? (p.status as MatchStatus);
+  const homeScore = matchState.data ? (matchState.data.homeScore ?? '') : p.homeScore;
+  const awayScore = matchState.data ? (matchState.data.awayScore ?? '') : p.awayScore;
+  const played = status !== 'scheduled';
+  const live = status === 'live';
 
   const boxScore = useAsync(
-    () => (played ? useCases.getMatchBoxScore.execute(Number(p.id)) : Promise.resolve(null)),
-    [p.id, played],
+    () => (played ? useCases.getMatchBoxScore.execute(Number(p.id), { status, startsAt }) : Promise.resolve(null)),
+    [p.id, played, status, startsAt],
   );
+  const reloadMatch = matchState.reload;
   const reloadBoxScore = boxScore.reload;
-  useEffect(() => {
-    if (!live) return;
-    const timer = setInterval(reloadBoxScore, 30_000);
-    return () => clearInterval(timer);
-  }, [live, reloadBoxScore]);
+  const refreshLive = useCallback(() => {
+    // Prima della palla a due si aggiorna solo nell'ultima mezz'ora, per accorgersi dell'inizio.
+    if (!played && startsAt.getTime() - Date.now() > PRE_GAME_WINDOW_MS) return;
+    reloadMatch();
+    if (played) reloadBoxScore();
+  }, [reloadMatch, reloadBoxScore, played, startsAt]);
+  usePolling(refreshLive, status !== 'finished', LIVE_REFRESH_MS);
   const stats = boxScore.data ? boxScore.data[side] : undefined;
 
   return (
@@ -47,10 +64,11 @@ export default function MatchScreen() {
         </Pressable>
         <View style={styles.center}>
           {played ? (
-            <Text style={styles.score}>{p.homeScore}-{p.awayScore}</Text>
+            <Text style={styles.score}>{homeScore}-{awayScore}</Text>
           ) : (
             <Text style={styles.vs}>VS</Text>
           )}
+          {live ? <Text style={styles.live}>● LIVE</Text> : null}
           <Text style={styles.date}>{formatWeekday(startsAt)} {formatDayMonth(startsAt)}</Text>
           <Text style={styles.time}>{formatTime(startsAt)}</Text>
         </View>
@@ -124,6 +142,7 @@ const styles = StyleSheet.create({
   center: { alignItems: 'center', gap: 2, minWidth: 90 },
   vs: { color: colors.orange, fontFamily: fonts.display, fontSize: 44, transform: [{ skewX: '-10deg' }] },
   score: { color: colors.yellow, fontFamily: fonts.display, fontSize: 40 },
+  live: { color: colors.orange, fontFamily: fonts.condensed, fontSize: 14, letterSpacing: 1.5 },
   date: { color: colors.textMuted, fontFamily: fonts.condensed, fontSize: 14, letterSpacing: 1 },
   time: { color: colors.cyan, fontFamily: fonts.display, fontSize: 26, letterSpacing: 1 },
   tabs: { flexDirection: 'row', gap: 10, marginHorizontal: 16, marginBottom: 16 },

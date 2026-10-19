@@ -11,7 +11,7 @@ Tutte le chiamate passano da `CachedHttpClient` (`src/infrastructure/cache/`), c
 | `/championships/get-championships` | `s` (anno di inizio stagione) | Trova la competizione di Regular Season della stagione corrente (serve l'`id` per tutte le altre chiamate) | Home, Calendario | 24 ore |
 | `/championships/get-championship-ranking` | `id` (competizione) | Classifica del campionato | Home, Calendario | 15 min |
 | `/championships/get-championships-calendar-by-id` | `id` (competizione), `d` (giornata, opzionale) | Partite della giornata corrente (senza `d`) o di una giornata specifica (con `d`) | Home, Calendario | Dipende dal contenuto, vedi sotto |
-| `/championships/get-championships-matches-scores-by-id` | `id` (partita) | Box score: statistiche dei giocatori di una partita in corso o conclusa | Partita | 60 s con dati, 30 s se vuoto |
+| `/championships/get-championships-matches-scores-by-id` | `id` (partita) | Box score: statistiche dei giocatori di una partita in corso o conclusa | Partita | 15 s; 24 ore se la partita è `finished` da oltre 3 ore dalla palla a due |
 | `/teams/get-team-roster` | `id` (squadra) | Roster di una squadra: giocatori e staff | Partita, Squadra | 12 ore |
 | `/teams/get-team-stats` | `id` (squadra), `s` (stagione) | Medie di squadra e posizione in lega per punti, rimbalzi e assist | Squadra | 15 min |
 | `/teams/get-team-matches-stats` | `id` (squadra), `s` (stagione) | Risultati partita per partita (casa/trasferta, punteggi): vittorie/sconfitte casa e fuori, striscia, forma, record | Squadra | 15 min |
@@ -27,8 +27,8 @@ Il TTL di `get-championships-calendar-by-id` viene calcolato sulla risposta:
 | Stato della giornata | TTL |
 |---|---|
 | Tutte le partite concluse | 7 giorni (non cambia più) |
-| Almeno una partita live | 30 s |
-| Partite da giocare | Tempo che manca alla prima palla a due, tra 30 s e 30 min |
+| Almeno una partita live | 15 s |
+| Partite da giocare | Tempo che manca alla prima palla a due, tra 15 s e 30 min |
 | Nessuna partita | 5 min |
 
 ## Comportamento della cache
@@ -41,5 +41,5 @@ Il TTL di `get-championships-calendar-by-id` viene calcolato sulla risposta:
 
 ## Limiti noti
 
-- Il box score non contiene lo stato della partita: non si distingue una partita finita da una live, quindi anche quelle concluse vengono riscaricate ogni 60 s.
+- Il box score non contiene lo stato: la schermata lo ricava dal calendario (`game_status`) e, se la partita è finita da oltre 3 ore dalla palla a due, chiede una cache di 24 ore tramite `RequestOptions.ttlMs`. Altrimenti il TTL è 15 s.
 - `Paths.cache` può essere svuotata dal sistema operativo se manca spazio. In quel caso la prima richiesta successiva torna in rete.

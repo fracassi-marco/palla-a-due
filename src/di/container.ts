@@ -1,5 +1,6 @@
 import { GetCalendar } from '../application/GetCalendar';
 import { GetCurrentRound } from '../application/GetCurrentRound';
+import { GetMatch } from '../application/GetMatch';
 import { GetMatchBoxScore } from '../application/GetMatchBoxScore';
 import { GetPlayerProfile } from '../application/GetPlayerProfile';
 import { GetStandings } from '../application/GetStandings';
@@ -32,6 +33,7 @@ export const useCases = {
   getStandings: new GetStandings(competitions, standings),
   getCurrentRound,
   getCalendar: new GetCalendar(competitions, matches, standings, getCurrentRound),
+  getMatch: new GetMatch(competitions, matches),
   getMatchBoxScore: new GetMatchBoxScore(matches),
   getTeamRoster: new GetTeamRoster(teams),
   getTeamStats: new GetTeamStats(teams, competitions, standings),

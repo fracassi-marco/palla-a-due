@@ -15,6 +15,7 @@ export function useOpenMatch() {
         homeLogo: m.home.logoUrl ?? '',
         awayLogo: m.away.logoUrl ?? '',
         startsAt: m.startsAt.toISOString(),
+        day: String(m.dayNumber),
         status: m.status,
         homeScore: String(m.homeScore ?? ''),
         awayScore: String(m.awayScore ?? ''),
