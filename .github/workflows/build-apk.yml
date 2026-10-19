@@ -1,0 +1,75 @@
+name: Build APK
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      CI: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Setup Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Cache Android NDK
+        uses: actions/cache@v6
+        with:
+          path: /usr/local/lib/android/sdk/ndk/27.1.12297006
+          key: ndk-27.1.12297006-${{ runner.os }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prebuild Android project
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Enable Gradle build cache
+        run: |
+          printf '\norg.gradle.caching=true\n' >> android/gradle.properties
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-home-cache-cleanup: true
+          cache-read-only: false
+
+      - name: Build APK
+        working-directory: android
+        run: |
+          ./gradlew assembleRelease \
+            -PreactNativeArchitectures=arm64-v8a \
+            -Pandroid.enableMinifyInReleaseBuilds=true \
+            -Pandroid.enableShrinkResourcesInReleaseBuilds=true
+
+      - name: Locate APK
+        id: apk
+        run: |
+          APK_PATH=$(find android/app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          echo "path=$APK_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Rename APK
+        run: cp "${{ steps.apk.outputs.path }}" "tuttobasket-${{ github.ref_name }}.apk"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          files: tuttobasket-${{ github.ref_name }}.apk

@@ -12,11 +12,12 @@ import {
   ApiTeamRepository,
   FetchHttpClient,
 } from '../infrastructure/api';
+import { CachedHttpClient, defaultTtlPolicy, FileCacheStore } from '../infrastructure/cache';
 
 const API_BASE_URL = 'https://www.legabasket.it/api';
 
 /** Composition root: l'unico punto in cui le porte vengono legate alle implementazioni. */
-const http = new FetchHttpClient(API_BASE_URL);
+const http = new CachedHttpClient(new FetchHttpClient(API_BASE_URL), new FileCacheStore(), defaultTtlPolicy);
 
 const competitions = new ApiCompetitionRepository(http);
 const matches = new ApiMatchRepository(http);
