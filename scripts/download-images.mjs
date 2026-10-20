@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// Scarica loghi delle squadre e foto dei giocatori della Serie A LBA e genera
+// Scarica loghi delle squadre e foto dei giocatori di LBA, Serie A2 e Serie B Nazionale (LNP) e genera
 // il manifest `src/infrastructure/images/manifest.ts` usato dall'app.
 // Uso: node scripts/download-images.mjs [anno-inizio-stagione]
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import { promisify } from 'node:util';
 import path from 'node:path';
@@ -11,6 +11,14 @@ import { fileURLToPath } from 'node:url';
 
 const API = 'https://www.legabasket.it/api';
 const CDN = 'https://lba-media.s3.eu-south-1.amazonaws.com';
+const LNP_SITE = 'https://www.legapallacanestro.com';
+// Pagine con l'elenco delle squadre di Serie A2 e B Nazionale, con la cartella (campionato) in cui salvarle.
+// Le immagini stanno in assets/images/<teams|players>/<campionato>/; non c'è una cartella per stagione perché le chiavi
+// sono stabili (un giocatore confermato non viene scaricato di nuovo) e lo storico è già in git.
+const LNP_TEAM_LISTS = [
+  ['/serie/1/squadre', 'a2'],
+  ['/serie/4/squadre', 'b'],
+];
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const imagesDir = path.join(root, 'assets', 'images');
 const manifestPath = path.join(root, 'src', 'infrastructure', 'images', 'manifest.ts');
@@ -33,47 +41,82 @@ async function getJson(endpoint, params) {
   return res.json();
 }
 
+/** Chiave → percorso relativo a `dir` di tutti i file già presenti, anche nelle sottocartelle dei campionati. */
 async function existing(dir) {
   const map = new Map();
-  for (const f of await readdir(dir).catch(() => [])) map.set(path.parse(f).name, f);
+  for (const entry of await readdir(dir, { withFileTypes: true }).catch(() => [])) {
+    if (entry.isDirectory()) {
+      for (const f of await readdir(path.join(dir, entry.name))) map.set(path.parse(f).name, `${entry.name}/${f}`);
+    } else {
+      map.set(path.parse(entry.name).name, entry.name);
+    }
+  }
   return map;
 }
 
-async function download(kind, keys) {
+/**
+ * `sourcesByLeague`: campionato → (chiave → URL da cui scaricarla). La chiave è l'ultimo segmento dell'URL,
+ * come in `resolveImageSource`. Se una chiave compare in più campionati vale il primo.
+ * Ritorna chiave → percorso relativo a `assets/images/<kind>`.
+ */
+async function download(kind, sourcesByLeague) {
   const dir = path.join(imagesDir, kind);
-  await mkdir(dir, { recursive: true });
   const files = await existing(dir);
+  const jobs = [];
+  const seen = new Set();
+  for (const [league, sources] of Object.entries(sourcesByLeague)) {
+    await mkdir(path.join(dir, league), { recursive: true });
+    for (const [key, url] of sources) {
+      if (seen.has(key)) continue;
+      seen.add(key);
+      jobs.push({ key, url, league });
+    }
+  }
   const result = {};
   let fetched = 0;
-  const queue = [...keys];
+  let moved = 0;
   const worker = async () => {
-    for (let key = queue.pop(); key; key = queue.pop()) {
-      if (!files.has(key)) {
-        const res = await fetch(`${CDN}/${key}`);
-        const buf = Buffer.from(await res.arrayBuffer());
-        if (!res.ok || buf.length === 0) {
-          console.warn(`  salto ${kind}/${key} (${res.status})`);
-          continue;
-        }
-        const tmp = await mkdtemp(path.join(os.tmpdir(), 'tuttobasket-'));
-        try {
-          await writeFile(path.join(tmp, 'original'), buf);
-          await toWebp(kind, path.join(tmp, 'original'), path.join(dir, `${key}.webp`));
-        } catch (error) {
-          console.warn(`  salto ${kind}/${key} (conversione fallita: ${error.message.split('\n')[0]})`);
-          continue;
-        } finally {
-          await rm(tmp, { recursive: true, force: true });
-        }
-        const name = `${key}.webp`;
-        files.set(key, name);
-        fetched++;
+    for (let job = jobs.pop(); job; job = jobs.pop()) {
+      const { key, url, league } = job;
+      const name = `${league}/${key}.webp`;
+      const current = files.get(key);
+      if (current === name) {
+        result[key] = name;
+        continue;
       }
-      result[key] = files.get(key);
+      if (current && !current.includes('/')) {
+        // File della vecchia struttura piatta: lo sposto nella cartella del campionato.
+        await rename(path.join(dir, current), path.join(dir, name));
+        moved++;
+        result[key] = name;
+        continue;
+      }
+      if (current) {
+        result[key] = current;
+        continue;
+      }
+      const res = await fetch(url);
+      const buf = Buffer.from(await res.arrayBuffer());
+      if (!res.ok || buf.length === 0) {
+        console.warn(`  salto ${kind}/${key} (${res.status})`);
+        continue;
+      }
+      const tmp = await mkdtemp(path.join(os.tmpdir(), 'tuttobasket-'));
+      try {
+        await writeFile(path.join(tmp, 'original'), buf);
+        await toWebp(kind, path.join(tmp, 'original'), path.join(dir, name));
+      } catch (error) {
+        console.warn(`  salto ${kind}/${key} (conversione fallita: ${error.message.split('\n')[0]})`);
+        continue;
+      } finally {
+        await rm(tmp, { recursive: true, force: true });
+      }
+      fetched++;
+      result[key] = name;
     }
   };
   await Promise.all(Array.from({ length: 8 }, worker));
-  console.log(`${kind}: ${Object.keys(result).length} immagini (${fetched} nuove)`);
+  console.log(`${kind}: ${Object.keys(result).length} immagini (${fetched} nuove, ${moved} spostate)`);
   return result;
 }
 
@@ -82,17 +125,43 @@ const rs = competitions.find((c) => c.ctype_code === 'RS' && c.cserie_code === '
 if (!rs) throw new Error(`Regular Season Serie A ${season} non trovata`);
 const { standings } = await getJson('/championships/get-championship-ranking', { id: rs.id });
 
-const teamKeys = new Set();
-const playerKeys = new Set();
+const teamSources = { lba: new Map(), a2: new Map(), b: new Map() };
+const playerSources = { lba: new Map(), a2: new Map(), b: new Map() };
+const lbaImage = (key) => [key, `${CDN}/${key}`];
 for (const s of standings) {
-  if (s.logo_key) teamKeys.add(s.logo_key);
+  if (s.logo_key) teamSources.lba.set(...lbaImage(s.logo_key));
   const roster = await getJson('/teams/get-team-roster', { id: s.team_id });
-  if (roster.team?.logo_key) teamKeys.add(roster.team.logo_key);
-  for (const p of roster.players ?? []) if (p.player_picture_key) playerKeys.add(p.player_picture_key);
+  if (roster.team?.logo_key) teamSources.lba.set(...lbaImage(roster.team.logo_key));
+  for (const p of roster.players ?? []) if (p.player_picture_key) playerSources.lba.set(...lbaImage(p.player_picture_key));
 }
 
-const teams = await download('teams', teamKeys);
-const players = await download('players', playerKeys);
+async function getHtml(url) {
+  const res = await fetch(url, { headers: { Accept: 'text/html' } });
+  if (!res.ok) throw new Error(`${url} ${res.status}`);
+  return res.text();
+}
+
+const lastSegment = (url) => url.slice(url.lastIndexOf('/') + 1);
+
+// LNP: gli URL devono essere gli stessi che l'app salva (logo dall'elenco squadre, foto dal roster nella scheda squadra).
+for (const [list, league] of LNP_TEAM_LISTS) {
+  const html = await getHtml(`${LNP_SITE}${list}`);
+  const teams = [...html.matchAll(/<a href="(\/serie-[^"]+)"><img[^>]*team_logo\/(\d+)\.([a-z]+)/g)];
+  for (const [, teamPath, id, ext] of teams) {
+    const logo = `${LNP_SITE}/sites/default/files/styles/255_x/public/team_logo/${id}.${ext}`;
+    teamSources[league].set(lastSegment(logo), logo);
+    const page = await getHtml(`${LNP_SITE}${teamPath}`);
+    const table = /<table[^>]*views-table[\s\S]*?<\/table>/.exec(page)?.[0] ?? '';
+    for (const [, src] of table.matchAll(/<img[^>]*src="([^"]+)"/g)) {
+      const photo = src.replace(/^http:/, 'https:');
+      playerSources[league].set(lastSegment(photo), photo);
+    }
+  }
+  console.log(`LNP ${list}: ${teams.length} squadre`);
+}
+
+const teams = await download('teams', teamSources);
+const players = await download('players', playerSources);
 
 const entries = (kind, map) =>
   Object.entries(map)
