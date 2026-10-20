@@ -8,9 +8,11 @@ export interface TeamGame {
   opponentScore: number;
 }
 
-/** Posti playoff e retrocessione della Serie A, come li marca la Lega nella sua classifica. */
-const PLAYOFF_SPOTS = 8;
-const RELEGATION_SPOTS = 2;
+/** Posti playoff e retrocessione, come li marca la Lega nella sua classifica (0 = nessuna zona). */
+export interface StandingsZones {
+  playoffSpots: number;
+  relegationSpots: number;
+}
 
 interface Row {
   team: TeamRef;
@@ -76,7 +78,7 @@ function rank(rows: Row[], games: TeamGame[]): Row[] {
  * le penalizzazioni di punti non sono ricavabili dai risultati, e tra tre o più squadre a pari merito
  * l'ordine può differire da quello della Lega (vedi `rank`).
  */
-export function computeStandings(teams: TeamRef[], games: TeamGame[]): Standing[] {
+export function computeStandings(teams: TeamRef[], games: TeamGame[], zones: StandingsZones): Standing[] {
   return rank(tally(teams, games), games).map((row, i) => {
     const position = i + 1;
     const losses = row.played - row.wins;
@@ -91,8 +93,8 @@ export function computeStandings(teams: TeamRef[], games: TeamGame[]): Standing[
       pointsAgainst: row.pointsAgainst,
       avgPointsFor: row.played > 0 ? row.pointsFor / row.played : 0,
       avgPointsAgainst: row.played > 0 ? row.pointsAgainst / row.played : 0,
-      playoffQualified: position <= PLAYOFF_SPOTS,
-      relegation: position > teams.length - RELEGATION_SPOTS,
+      playoffQualified: position <= zones.playoffSpots,
+      relegation: zones.relegationSpots > 0 && position > teams.length - zones.relegationSpots,
     };
   });
 }

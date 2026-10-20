@@ -1,11 +1,14 @@
 import { Standing } from '../../domain/entities';
 import { StandingsRepository } from '../../domain/ports';
-import { computeStandings, TeamGame } from '../../domain/standings';
+import { computeStandings, StandingsZones, TeamGame } from '../../domain/standings';
 import { Database } from './Database';
 import { COMPETITION_TEAM_IDS, TeamRow, toTeamRef } from './rows';
 
 export class SqliteStandingsRepository implements StandingsRepository {
-  constructor(private readonly db: Database) {}
+  constructor(
+    private readonly db: Database,
+    private readonly zones: StandingsZones,
+  ) {}
 
   async getStandings(competitionId: number): Promise<Standing[]> {
     const [teams, games] = await Promise.all([
@@ -24,6 +27,6 @@ export class SqliteStandingsRepository implements StandingsRepository {
       teamScore: g.team_score,
       opponentScore: g.opponent_score,
     }));
-    return computeStandings(teams.map(toTeamRef), teamGames);
+    return computeStandings(teams.map(toTeamRef), teamGames, this.zones);
   }
 }

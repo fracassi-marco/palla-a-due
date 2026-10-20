@@ -18,6 +18,11 @@ const MIN_RESYNC_INTERVAL_MS = 5 * MINUTE;
 /** Le schermate vengono avvisate di nuovi dati al più una volta al secondo durante lo scaricamento. */
 const NOTIFY_INTERVAL_MS = SECOND;
 
+interface SyncCompetition {
+  id: number;
+  totalDays: number;
+}
+
 export type SyncPhase = 'calendar' | 'boxScores' | 'rosters';
 
 export interface SyncState {
@@ -88,6 +93,16 @@ export class SyncLeague {
     return () => this.listeners.delete(listener);
   };
 
+  /** Legge dal database (senza rete) se il calendario è già completo, così `ready` è noto prima della prima sincronizzazione. */
+  async loadReadiness(): Promise<void> {
+    if (this.state.ready !== null) return;
+    const stored = await this.store.getCompetitions(currentSeasonYear());
+    const competitions: SyncCompetition[] = [];
+    for (const { id, totalDays } of stored) if (totalDays !== null) competitions.push({ id, totalDays });
+    const ready = stored.length > 0 && competitions.length === stored.length && (await this.hasFullCalendar(competitions));
+    if (this.state.ready === null) this.update({ ready });
+  }
+
   /** Avvia la sincronizzazione; se ne è già in corso una, ne attende la fine. */
   start(options: { minIntervalMs?: number } = {}): Promise<void> {
     if (this.running) return this.running;
@@ -141,17 +156,17 @@ export class SyncLeague {
     };
 
     try {
-      const competition = await this.ensureCompetition();
-      this.update({ ready: await this.hasFullCalendar(competition.id, competition.totalDays) });
+      const competitions = await this.ensureCompetitions();
+      this.update({ ready: await this.hasFullCalendar(competitions) });
 
-      track(await this.syncCalendar(competition.id, competition.totalDays));
-      const ready = await this.hasFullCalendar(competition.id, competition.totalDays);
+      track(await this.syncCalendar(competitions));
+      const ready = await this.hasFullCalendar(competitions);
       this.update({ ready });
       this.notify(true);
 
       if (ready) {
-        track(await this.syncBoxScores(competition.id));
-        track(await this.syncRosters(competition.id));
+        track(await this.syncBoxScores(competitions));
+        track(await this.syncRosters(competitions));
       }
 
       this.lastFinishedAt = Date.now();
@@ -168,43 +183,56 @@ export class SyncLeague {
     }
   }
 
-  /** Competizione della stagione corrente, con il numero di giornate (dedotto dalla prima giornata). */
-  private async ensureCompetition(): Promise<{ id: number; totalDays: number }> {
+  /** Competizioni della stagione corrente, ciascuna con il numero di giornate (dedotto dalla prima giornata). */
+  private async ensureCompetitions(): Promise<SyncCompetition[]> {
     const season = currentSeasonYear();
-    let competition = await this.store.getCompetition(season);
-    if (!competition) {
-      const found = await withRetry(() => this.source.findRegularSeason(season));
-      await this.store.saveCompetition(found, null);
-      competition = { ...found, totalDays: null };
+    let stored = await this.store.getCompetitions(season);
+    if (stored.length === 0) {
+      const found = await withRetry(() => this.source.findRegularSeasons(season));
+      for (const competition of found) await this.store.saveCompetition(competition, null);
+      stored = found.map((competition) => ({ ...competition, totalDays: null }));
     }
-    if (competition.totalDays !== null) return { id: competition.id, totalDays: competition.totalDays };
 
-    const firstDay = await this.fetchDay(competition.id, 1);
-    // Girone all'italiana andata/ritorno: 2 * (squadre - 1) giornate, con 2 squadre per partita.
-    const totalDays = firstDay.length > 0 ? 4 * firstDay.length - 2 : 30;
-    await this.store.saveCompetition(competition, totalDays);
-    return { id: competition.id, totalDays };
+    return Promise.all(
+      stored.map(async (competition) => {
+        if (competition.totalDays !== null) return { id: competition.id, totalDays: competition.totalDays };
+
+        const firstDay = await this.fetchDay(competition.id, 1);
+        // Girone all'italiana andata/ritorno: 2 * (squadre - 1) giornate, con 2 squadre per partita.
+        const totalDays = firstDay.length > 0 ? 4 * firstDay.length - 2 : 30;
+        await this.store.saveCompetition(competition, totalDays);
+        return { id: competition.id, totalDays };
+      }),
+    );
   }
 
-  private async hasFullCalendar(competitionId: number, totalDays: number): Promise<boolean> {
-    const days = await this.store.getDaySyncStates(competitionId);
-    return days.length >= totalDays;
+  private async hasFullCalendar(competitions: SyncCompetition[]): Promise<boolean> {
+    const complete = await Promise.all(
+      competitions.map(async (c) => (await this.store.getDaySyncStates(c.id)).length >= c.totalDays),
+    );
+    return complete.every(Boolean);
   }
 
-  private async syncCalendar(competitionId: number, totalDays: number) {
-    const states = new Map((await this.store.getDaySyncStates(competitionId)).map((d) => [d.dayNumber, d]));
+  private async syncCalendar(competitions: SyncCompetition[]) {
     const now = Date.now();
-    const stale = Array.from({ length: totalDays }, (_, i) => i + 1).filter((day) => dayIsStale(states.get(day), now));
+    const stale: { competitionId: number; day: number }[] = [];
+    for (const { id, totalDays } of competitions) {
+      const states = new Map((await this.store.getDaySyncStates(id)).map((d) => [d.dayNumber, d]));
+      for (let day = 1; day <= totalDays; day++) {
+        if (dayIsStale(states.get(day), now)) stale.push({ competitionId: id, day });
+      }
+    }
 
     this.update({ phase: 'calendar', done: 0, total: stale.length });
-    return runPool(stale, CONCURRENCY, async (day) => {
+    return runPool(stale, CONCURRENCY, async ({ competitionId, day }) => {
       await this.fetchDay(competitionId, day);
       this.progress();
     });
   }
 
-  private async syncBoxScores(competitionId: number) {
-    const pending = await this.store.getPendingBoxScores(competitionId, Date.now());
+  private async syncBoxScores(competitions: SyncCompetition[]) {
+    const now = Date.now();
+    const pending = (await Promise.all(competitions.map((c) => this.store.getPendingBoxScores(c.id, now)))).flat();
     this.update({ phase: 'boxScores', done: 0, total: pending.length });
     return runPool(pending, CONCURRENCY, async (info) => {
       await this.fetchBoxScore(info);
@@ -212,8 +240,9 @@ export class SyncLeague {
     });
   }
 
-  private async syncRosters(competitionId: number) {
-    const teamIds = await this.store.getTeamsNeedingRoster(competitionId);
+  private async syncRosters(competitions: SyncCompetition[]) {
+    const lists = await Promise.all(competitions.map((c) => this.store.getTeamsNeedingRoster(c.id)));
+    const teamIds = [...new Set(lists.flat())];
     this.update({ phase: 'rosters', done: 0, total: teamIds.length });
     return runPool(teamIds, CONCURRENCY, async (teamId) => {
       const roster = await withRetry(() => this.source.getRoster(teamId));

@@ -29,7 +29,7 @@ export interface MatchSyncInfo {
 
 /** Lato scrittura del database locale: ciò che serve alla sincronizzazione. */
 export interface LeagueStore {
-  getCompetition(seasonYear: number): Promise<StoredCompetition | null>;
+  getCompetitions(seasonYear: number): Promise<StoredCompetition[]>;
   saveCompetition(competition: Competition, totalDays: number | null): Promise<void>;
 
   getDaySyncStates(competitionId: number): Promise<DaySyncState[]>;

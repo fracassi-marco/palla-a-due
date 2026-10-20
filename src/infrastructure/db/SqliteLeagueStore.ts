@@ -71,12 +71,12 @@ async function upsertTeam(txn: SqlExecutor, team: { id: number; name: string; co
 export class SqliteLeagueStore implements LeagueStore {
   constructor(private readonly db: Database) {}
 
-  async getCompetition(seasonYear: number): Promise<StoredCompetition | null> {
-    const row = await this.db.getFirstAsync<{ id: number; name: string; season_year: number; total_days: number | null }>(
-      'SELECT id, name, season_year, total_days FROM competitions WHERE season_year = ?',
+  async getCompetitions(seasonYear: number): Promise<StoredCompetition[]> {
+    const rows = await this.db.getAllAsync<{ id: number; name: string; season_year: number; total_days: number | null }>(
+      'SELECT id, name, season_year, total_days FROM competitions WHERE season_year = ? ORDER BY id',
       [seasonYear],
     );
-    return row ? { id: row.id, name: row.name, year: row.season_year, totalDays: row.total_days } : null;
+    return rows.map((row) => ({ id: row.id, name: row.name, year: row.season_year, totalDays: row.total_days }));
   }
 
   async saveCompetition(competition: Competition, totalDays: number | null): Promise<void> {

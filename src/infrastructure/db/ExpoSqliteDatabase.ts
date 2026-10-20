@@ -40,7 +40,7 @@ export class ExpoSqliteDatabase implements Database {
   /** SQLite ammette un solo scrittore: le scritture (anche le transazioni, su connessioni separate) vanno in fila. */
   private writeQueue: Promise<unknown> = Promise.resolve();
 
-  constructor(name = 'tuttobasket.db') {
+  constructor(name: string) {
     this.direct = new DirectDatabase(openDatabaseSync(name));
     this.ready = migrate(this.direct);
   }

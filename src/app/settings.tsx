@@ -15,7 +15,7 @@ export default function SettingsScreen() {
   const standings = useAsync(() => useCases.getStandings.execute(), [dataVersion]);
   const favoriteId = useFavoriteTeamId();
 
-  const teams = (standings.data ?? []).map((s) => s.team).sort((a, b) => a.name.localeCompare(b.name));
+  const teams = (standings.data ?? []).flatMap((g) => g.standings).map((s) => s.team).sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <ScrollView style={styles.root} contentContainerStyle={{ paddingBottom: 40 }}>

@@ -4,6 +4,7 @@ import { useCases } from '../di/container';
 import { MatchCard } from '../presentation/components/MatchCard';
 import { Empty, ErrorView, Loading } from '../presentation/components/StateViews';
 import { useAsync } from '../presentation/hooks/useAsync';
+import { useLeague } from '../presentation/hooks/useLeague';
 import { useDataVersion } from '../presentation/hooks/useSync';
 import { favoriteFirst } from '../domain/favoriteFirst';
 import { useFavoriteTeamId } from '../presentation/hooks/useFavoriteTeam';
@@ -12,10 +13,15 @@ import { colors, fonts, radius } from '../presentation/theme';
 
 const CHIP_WIDTH = 64;
 
-function DayMatches({ competitionId, day }: { competitionId: number; day: number }) {
+function DayMatches({ competitionIds, day }: { competitionIds: number[]; day: number }) {
   const openMatch = useOpenMatch();
   const dataVersion = useDataVersion();
-  const matches = useAsync(() => useCases.getCalendar.day(competitionId, day), [competitionId, day, dataVersion]);
+  const league = useLeague();
+  const matches = useAsync(
+    () => useCases.getCalendar.day(competitionIds, day),
+    [competitionIds.join(), day, dataVersion],
+    `${league}:day:${competitionIds.join()}:${day}`,
+  );
 
   const favoriteId = useFavoriteTeamId();
   const ordered = useMemo(() => favoriteFirst(matches.data ?? [], favoriteId), [matches.data, favoriteId]);
@@ -39,11 +45,12 @@ function DayMatches({ competitionId, day }: { competitionId: number; day: number
 
 export default function CalendarScreen() {
   const dataVersion = useDataVersion();
-  const overview = useAsync(() => useCases.getCalendar.overview(), [dataVersion]);
+  const league = useLeague();
+  const overview = useAsync(() => useCases.getCalendar.overview(), [dataVersion], `${league}:overview`);
   const [selected, setSelected] = useState<number | null>(null);
   const chips = useRef<FlatList<number>>(null);
 
-  const competitionId = overview.data?.competitionId;
+  const competitionIds = overview.data?.competitionIds;
   const day = selected ?? overview.data?.initialDay ?? null;
 
   useEffect(() => {
@@ -79,7 +86,7 @@ export default function CalendarScreen() {
         }}
       />
 
-      {competitionId && day ? <DayMatches key={day} competitionId={competitionId} day={day} /> : null}
+      {competitionIds && day ? <DayMatches key={day} competitionIds={competitionIds} day={day} /> : null}
     </View>
   );
 }

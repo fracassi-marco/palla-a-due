@@ -1,7 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { useCases } from '../../di/container';
-
-const { favoriteTeam } = useCases;
+import { favoriteTeam } from '../../di/container';
 
 export function useFavoriteTeamId(): number | null {
   return useSyncExternalStore(favoriteTeam.subscribe, favoriteTeam.getSnapshot);

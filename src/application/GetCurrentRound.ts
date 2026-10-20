@@ -14,13 +14,19 @@ export class GetCurrentRound {
     private readonly matches: MatchRepository,
   ) {}
 
+  /** Partite da mostrare: la giornata corrente di ogni competizione (una sola, tranne che con i gironi). */
+  async execute(now: Date = new Date()): Promise<Match[]> {
+    const competitions = await this.competitions.getSeasonCompetitions(currentSeasonYear(now));
+    const rounds = await Promise.all(competitions.map((c) => this.competitionRound(c.id, now)));
+    return sortByStart(rounds.flat());
+  }
+
   /**
    * Partite della giornata da mostrare: quella in corso o conclusa da meno di 48 ore
    * (calcolate sull'ultima partita della giornata), altrimenti la prossima.
    */
-  async execute(now: Date = new Date()): Promise<Match[]> {
-    const competition = await this.competitions.getCurrentRegularSeason(currentSeasonYear(now));
-    const focus = await this.matches.getCurrentDayMatches(competition.id, now);
+  private async competitionRound(competitionId: number, now: Date): Promise<Match[]> {
+    const focus = await this.matches.getCurrentDayMatches(competitionId, now);
     if (focus.length === 0) return [];
 
     const focusDay = focus[0].dayNumber;
@@ -29,7 +35,7 @@ export class GetCurrentRound {
 
     let last: Match[] = focus;
     for (const day of days) {
-      const round = day === focusDay ? focus : await this.matches.getMatchesByDay(competition.id, day);
+      const round = day === focusDay ? focus : await this.matches.getMatchesByDay(competitionId, day);
       if (round.length === 0) continue;
       last = round;
       if (this.isActiveOrRecent(round, now)) return sortByStart(round);

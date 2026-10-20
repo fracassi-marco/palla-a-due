@@ -17,7 +17,7 @@ export function StandingsTable({ standings }: { standings: Standing[] }) {
         <Text style={[styles.headText, styles.pts]}>PT</Text>
       </View>
       {standings.map((s, i) => {
-        const zone = s.relegation ? colors.red : s.playoffQualified ? colors.green : s.position <= 8 ? colors.orange : 'transparent';
+        const zone = s.relegation ? colors.red : s.playoffQualified ? colors.green : 'transparent';
         return (
           <Pressable key={s.team.id} onPress={() => openTeam(s.team.id, s.team.name, s.team.logoUrl)} style={({ pressed }) => [styles.row, i % 2 === 0 && styles.zebra, pressed && styles.pressed]}>
             <View style={[styles.zone, { backgroundColor: zone }]} />

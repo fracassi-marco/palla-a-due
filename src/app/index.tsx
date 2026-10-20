@@ -3,9 +3,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Link } from 'expo-router';
 import { useMemo } from 'react';
 import { RankedStat } from '../domain/entities';
+import { leagueInfo } from '../domain/League';
 import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCases } from '../di/container';
+import { LeagueSelector } from '../presentation/components/LeagueSelector';
 import { MatchCard } from '../presentation/components/MatchCard';
 import { SectionTitle } from '../presentation/components/SectionTitle';
 import { Empty, ErrorView, Loading } from '../presentation/components/StateViews';
@@ -14,6 +16,7 @@ import { RANKING_STATS } from '../presentation/rankingStats';
 import { useOpenMatch } from '../presentation/hooks/useOpenMatch';
 import { favoriteFirst } from '../domain/favoriteFirst';
 import { useFavoriteTeamId } from '../presentation/hooks/useFavoriteTeam';
+import { useLeague } from '../presentation/hooks/useLeague';
 import { useAsync } from '../presentation/hooks/useAsync';
 import { useDataVersion } from '../presentation/hooks/useSync';
 import { colors, fonts, radius } from '../presentation/theme';
@@ -34,13 +37,20 @@ const STAT_ICONS: Record<RankedStat, keyof typeof Ionicons.glyphMap> = {
   freeThrowPercent: 'disc',
 };
 
+/** Cambiando campionato la schermata riparte da zero, senza mostrare per un attimo i dati del precedente. */
 export default function HomeScreen() {
+  return <Home key={useLeague()} />;
+}
+
+function Home() {
   const { width } = useWindowDimensions();
   const cardWidth = Math.min(width * 0.82, 340);
 
+  const leagueId = useLeague();
+  const league = leagueInfo(leagueId);
   const dataVersion = useDataVersion();
-  const standings = useAsync(() => useCases.getStandings.execute(), [dataVersion]);
-  const matches = useAsync(() => useCases.getCurrentRound.execute(), [dataVersion]);
+  const standings = useAsync(() => useCases.getStandings.execute(), [dataVersion], `${leagueId}:standings`);
+  const matches = useAsync(() => useCases.getCurrentRound.execute(), [dataVersion], `${leagueId}:round`);
 
   const refreshing = standings.refreshing || matches.refreshing;
   const reloadAll = () => {
@@ -61,7 +71,7 @@ export default function HomeScreen() {
       >
         <LinearGradient colors={[colors.orangeDeep, colors.orange, colors.yellow]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
           <Ionicons name="basketball" size={84} color="rgba(11,16,32,0.14)" style={styles.heroBall} />
-          <Text style={styles.heroKicker}>LEGA BASKET SERIE A</Text>
+          <Text style={styles.heroKicker}>{league.title}</Text>
           <Text style={styles.heroTitle}>TUTTO BASKET</Text>
           <Link href="/settings" asChild>
             <Pressable hitSlop={12} style={styles.settingsBtn} accessibilityLabel="Impostazioni">
@@ -69,6 +79,8 @@ export default function HomeScreen() {
             </Pressable>
           </Link>
         </LinearGradient>
+
+        <LeagueSelector />
 
         <SectionTitle title="PARTITE" accent={colors.cyan} right={matches.data?.[0]?.dayName.toUpperCase()} />
         {matches.loading ? (
@@ -101,14 +113,21 @@ export default function HomeScreen() {
           <Loading />
         ) : standings.error ? (
           <ErrorView onRetry={standings.reload} />
-        ) : standings.data && standings.data.length > 0 ? (
+        ) : standings.data && standings.data.some((g) => g.standings.length > 0) ? (
           <>
-            <StandingsTable standings={standings.data} />
-            <View style={styles.legend}>
-              <LegendDot color={colors.green} label="Playoff" />
-              <LegendDot color={colors.orange} label="Zona playoff" />
-              <LegendDot color={colors.red} label="Retrocessione" />
-            </View>
+            {standings.data.map((group) => (
+              <View key={group.competitionId} style={styles.group}>
+                {standings.data!.length > 1 ? <Text style={styles.groupTitle}>{group.name.toUpperCase()}</Text> : null}
+                <StandingsTable standings={group.standings} />
+              </View>
+            ))}
+            {league.playoffSpots > 0 ? (
+              <View style={styles.legend}>
+                <LegendDot color={colors.green} label="Playoff" />
+                <LegendDot color={colors.orange} label="Zona playoff" />
+                {league.relegationSpots > 0 ? <LegendDot color={colors.red} label="Retrocessione" /> : null}
+              </View>
+            ) : null}
           </>
         ) : (
           <Empty text="Classifica non ancora disponibile." />
@@ -154,6 +173,8 @@ const styles = StyleSheet.create({
   statCard: { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 60, paddingHorizontal: 14, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface },
   statIcon: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceAlt },
   statTitle: { flex: 1, flexShrink: 1, color: colors.text, fontFamily: fonts.condensed, fontSize: 16, letterSpacing: 0.8 },
+  group: { gap: 8, marginBottom: 12 },
+  groupTitle: { color: colors.cyan, fontFamily: fonts.condensed, fontSize: 16, letterSpacing: 1.5, marginHorizontal: 16 },
   legend: { flexDirection: 'row', justifyContent: 'center', gap: 16, marginTop: 12 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   dot: { width: 10, height: 10, borderRadius: 5 },

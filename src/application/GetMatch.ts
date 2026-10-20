@@ -10,8 +10,8 @@ export class GetMatch {
 
   /** Stato e punteggio aggiornati di una partita, riletti dalla sua giornata; null se non trovata. */
   async execute(matchId: number, dayNumber: number, now: Date = new Date()): Promise<Match | null> {
-    const competition = await this.competitions.getCurrentRegularSeason(currentSeasonYear(now));
-    const round = await this.matches.getMatchesByDay(competition.id, dayNumber);
-    return round.find((m) => m.id === matchId) ?? null;
+    const competitions = await this.competitions.getSeasonCompetitions(currentSeasonYear(now));
+    const rounds = await Promise.all(competitions.map((c) => this.matches.getMatchesByDay(c.id, dayNumber)));
+    return rounds.flat().find((m) => m.id === matchId) ?? null;
   }
 }

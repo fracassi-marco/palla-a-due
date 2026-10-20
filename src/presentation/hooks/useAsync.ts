@@ -8,9 +8,17 @@ export interface AsyncState<T> {
   reload: () => void;
 }
 
-export function useAsync<T>(loader: () => Promise<T>, deps: unknown[] = []): AsyncState<T> {
-  const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(true);
+/** Ultimo risultato per `cacheKey`: rimontando una schermata (es. cambiando campionato) si parte dai dati già visti. */
+const results = new Map<string, unknown>();
+
+/**
+ * Con `cacheKey` il risultato resta in memoria: al rimontaggio viene mostrato subito e riletto in background,
+ * invece di far comparire il caricamento. La chiave deve distinguere campionato e parametri della lettura.
+ */
+export function useAsync<T>(loader: () => Promise<T>, deps: unknown[] = [], cacheKey?: string): AsyncState<T> {
+  const cached = cacheKey !== undefined ? (results.get(cacheKey) as T | undefined) : undefined;
+  const [data, setData] = useState<T | null>(cached ?? null);
+  const [loading, setLoading] = useState(cached === undefined);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [tick, setTick] = useState(0);
@@ -21,11 +29,11 @@ export function useAsync<T>(loader: () => Promise<T>, deps: unknown[] = []): Asy
     const isRefresh = !firstRun.current;
     firstRun.current = false;
     if (isRefresh) setRefreshing(true);
-    else setLoading(true);
 
     loader()
       .then((result) => {
         if (cancelled) return;
+        if (cacheKey !== undefined) results.set(cacheKey, result);
         setData(result);
         setError(null);
       })

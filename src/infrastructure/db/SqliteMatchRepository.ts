@@ -11,10 +11,13 @@ export class SqliteMatchRepository implements MatchRepository {
 
   async getCurrentDayMatches(competitionId: number, now: Date): Promise<Match[]> {
     const upcoming = await this.db.getFirstAsync<{ day_number: number }>(
+      // Le partite rinviate di giornate già superate (la più alta con una partita conclusa) non fanno da "corrente".
       `SELECT day_number FROM matches
        WHERE competition_id = ? AND status != 'finished' AND starts_at >= ?
+         AND day_number >= COALESCE(
+           (SELECT MAX(day_number) FROM matches WHERE competition_id = ? AND status = 'finished'), 0)
        ORDER BY starts_at LIMIT 1`,
-      [competitionId, now.getTime() - RECENT_WINDOW_MS],
+      [competitionId, now.getTime() - RECENT_WINDOW_MS, competitionId],
     );
     const day =
       upcoming?.day_number ??

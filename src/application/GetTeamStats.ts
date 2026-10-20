@@ -44,7 +44,7 @@ export class GetTeamStats {
     const [season, results, standings] = await Promise.all([
       this.teams.getSeasonStats(teamId, seasonYear),
       this.teams.getResults(teamId, seasonYear),
-      this.currentStandings(seasonYear),
+      this.currentStandings(teamId, seasonYear),
     ]);
     if (!season || results.length === 0) return null;
 
@@ -88,10 +88,15 @@ export class GetTeamStats {
   }
 
   /** La classifica serve solo per posizione e difesa: se manca, la schermata funziona comunque. */
-  private async currentStandings(seasonYear: number): Promise<Standing[]> {
+  private async currentStandings(teamId: number, seasonYear: number): Promise<Standing[]> {
     try {
-      const competition = await this.competitions.getCurrentRegularSeason(seasonYear);
-      return await this.standings.getStandings(competition.id);
+      // Con i gironi conta solo la classifica di quello della squadra.
+      const competitions = await this.competitions.getSeasonCompetitions(seasonYear);
+      for (const competition of competitions) {
+        const standings = await this.standings.getStandings(competition.id);
+        if (standings.some((s) => s.team.id === teamId)) return standings;
+      }
+      return [];
     } catch {
       return [];
     }

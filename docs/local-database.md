@@ -1,8 +1,12 @@
 # Database locale e sincronizzazione
 
-Le schermate leggono **solo** dal database SQLite (`expo-sqlite`, file `tuttobasket.db`). La rete è usata
+Le schermate leggono **solo** dal database SQLite (`expo-sqlite`). La rete è usata
 esclusivamente da `SyncLeague` (`src/application/SyncLeague.ts`), che scarica ciò che il database non ha ancora.
-Base URL API: `https://www.legabasket.it/api`.
+
+Ogni campionato ha il suo database e la sua `SyncLeague` (`di/container.ts`, creati alla prima selezione):
+`tuttobasket.db` (LBA, base URL API `https://www.legabasket.it/api`), `tuttobasket-a2.db` e `tuttobasket-b.db`
+(LNP: vedi `docs/api-lnp.md`). Gli id di LBA e LNP, e quelli di stagioni diverse, non si mescolano mai. La tabella
+sotto descrive le chiamate della LBA; LNP segue le stesse regole di validità con le sue sorgenti.
 
 ## Schema
 
@@ -10,7 +14,7 @@ Definito in `src/infrastructure/db/schema.ts`, una migrazione per versione (`PRA
 
 | Tabella | Contenuto | Chiave |
 |---|---|---|
-| `competitions` | Regular Season per stagione, con `total_days` | `id` |
+| `competitions` | Regular Season per stagione, con `total_days`; una per girone in Serie B | `id` |
 | `teams` | Squadre; `roster_fetched_at` = ultimo download del roster | `id` |
 | `coaches` | Allenatore di ogni squadra | `id` |
 | `players` | Anagrafica; `has_bio` = 0 se creato dal box score, 1 se completo dal roster | `id` |
@@ -50,7 +54,8 @@ Non vengono più chiamati: classifica, statistiche squadra, statistiche giocator
 ## Come si calcolano i dati derivati
 
 - **Classifica** (`domain/standings.ts`): vittorie, punti (2 a vittoria) e canestri dalle partite concluse. Ordine: punti,
-  poi scontri diretti tra pari merito, differenza canestri, punti fatti. Playoff = prime 8, retrocessione = ultime 2.
+  poi scontri diretti tra pari merito, differenza canestri, punti fatti. Playoff = prime 8, retrocessione = ultime 2
+  (solo LBA: per A2 e B le zone non sono evidenziate, vedi `LEAGUES` in `domain/League.ts`). Una classifica per competizione.
   Limiti: le penalizzazioni di punti non sono ricavabili dai risultati; con tre o più squadre a pari merito l'ordine può
   differire da quello della Lega.
 - **Medie, massimi e totali giocatore**: dalle righe di `player_games` con `minutes > 0` (`domain/statLines.ts`).

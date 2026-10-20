@@ -6,7 +6,8 @@ import { currentSeasonYear } from './season';
 const DEFAULT_TOTAL_DAYS = 30;
 
 export interface CalendarOverview {
-  competitionId: number;
+  /** Competizioni della stagione: più d'una solo con i gironi, che giocano le stesse giornate. */
+  competitionIds: number[];
   /** Giornata da mostrare per prima: stessa logica della home. */
   initialDay: number;
   totalDays: number;
@@ -21,18 +22,20 @@ export class GetCalendar {
   ) {}
 
   async overview(now: Date = new Date()): Promise<CalendarOverview> {
-    const competition = await this.competitions.getCurrentRegularSeason(currentSeasonYear(now));
-    const [round, standings] = await Promise.all([
+    const competitions = await this.competitions.getSeasonCompetitions(currentSeasonYear(now));
+    const [round, tables] = await Promise.all([
       this.currentRound.execute(now),
-      this.standings.getStandings(competition.id).catch(() => []),
+      Promise.all(competitions.map((c) => this.standings.getStandings(c.id).catch(() => []))),
     ]);
     // Girone all'italiana andata/ritorno: 2 * (squadre - 1) giornate.
-    const totalDays = standings.length > 1 ? 2 * (standings.length - 1) : DEFAULT_TOTAL_DAYS;
-    return { competitionId: competition.id, initialDay: round[0]?.dayNumber ?? 1, totalDays };
+    const totalDays = Math.max(
+      ...tables.map((standings) => (standings.length > 1 ? 2 * (standings.length - 1) : DEFAULT_TOTAL_DAYS)),
+    );
+    return { competitionIds: competitions.map((c) => c.id), initialDay: round[0]?.dayNumber ?? 1, totalDays };
   }
 
-  async day(competitionId: number, dayNumber: number): Promise<Match[]> {
-    const round = await this.matches.getMatchesByDay(competitionId, dayNumber);
-    return [...round].sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
+  async day(competitionIds: number[], dayNumber: number): Promise<Match[]> {
+    const rounds = await Promise.all(competitionIds.map((id) => this.matches.getMatchesByDay(id, dayNumber)));
+    return rounds.flat().sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
   }
 }

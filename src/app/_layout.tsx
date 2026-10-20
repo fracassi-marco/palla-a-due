@@ -6,24 +6,32 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { AppState, View } from 'react-native';
-import { useCases } from '../di/container';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useCases, warmUpLeagues } from '../di/container';
+import { LeagueSelector } from '../presentation/components/LeagueSelector';
 import { Loading } from '../presentation/components/StateViews';
 import { FirstSync, SyncBar } from '../presentation/components/SyncProgress';
+import { useLeague } from '../presentation/hooks/useLeague';
 import { useSyncState } from '../presentation/hooks/useSync';
 import { colors, fonts } from '../presentation/theme';
 
 export default function RootLayout() {
   const [loaded] = useFonts({ BebasNeue_400Regular, Barlow_500Medium, Barlow_700Bold, BarlowCondensed_700Bold });
   const sync = useSyncState();
+  const league = useLeague();
 
-  // Il database si aggiorna in background: all'avvio e ogni volta che l'app torna in primo piano.
+  // Il database si aggiorna in background: all'avvio, quando si cambia campionato e ogni volta che l'app torna in primo piano.
   useEffect(() => {
     void useCases.sync.start();
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') void useCases.sync.resume();
     });
     return () => subscription.remove();
-  }, []);
+  }, [league]);
+
+  useEffect(() => {
+    if (loaded) warmUpLeagues();
+  }, [loaded]);
 
   if (!loaded || (sync.ready === null && sync.status !== 'error')) {
     return (
@@ -34,7 +42,15 @@ export default function RootLayout() {
   }
 
   // Senza il calendario nel database non c'è nulla da mostrare: solo al primissimo avvio.
-  if (!sync.ready) return <FirstSync state={sync} onRetry={() => void useCases.sync.start()} />;
+  // Il selettore resta disponibile: un campionato che non si scarica non deve bloccare gli altri.
+  if (!sync.ready) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top']}>
+        <LeagueSelector />
+        <FirstSync state={sync} onRetry={() => void useCases.sync.start()} />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
