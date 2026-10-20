@@ -43,6 +43,44 @@ Non vedere nessuna riga è normale quando il database del campionato è già agg
 che è scaduto. Per forzare le chiamate seleziona un campionato mai sincronizzato (es. EuroLeague). Le immagini caricate da
 `expo-image` non passano da qui e non vengono registrate.
 
+## Sito (GitHub Pages)
+
+Il sito vetrina è una pagina statica in `site/` (HTML e CSS, nessuna build): `index.html`, `privacy.html`, `termini.html`
+e gli screenshot in `site/shots/`. Non è l'app in versione web: l'app non gira nel browser perché l'API della LBA non
+ammette richieste cross-origin (CORS) e `expo-sqlite` sul web richiede header che GitHub Pages non può impostare.
+
+### Provarlo in locale
+
+```bash
+cd site
+python3 -m http.server 8080   # oppure, dalla radice: npx serve site
+```
+
+Apri http://localhost:8080 e controlla anche `/privacy.html` e `/termini.html`. Ogni modifica ai file si vede ricaricando la pagina.
+
+### Rilasciarlo
+
+Il workflow `.github/workflows/pages.yml` pubblica la cartella `site/` a ogni push su `main` che ne cambia i file
+(si può lanciare a mano da **Actions → Deploy site → Run workflow**).
+
+Una volta sola, nel repository su GitHub: **Settings → Pages → Source: GitHub Actions**.
+
+Poi basta:
+
+```bash
+git add site && git commit -m "Aggiorna il sito" && git push
+```
+
+Il sito è su https://fracassi-marco.github.io/tutto-basket/ (il primo deploy richiede uno o due minuti; lo stato è nella
+scheda Actions). Il pulsante "Scarica" rimanda alla pagina `releases/latest`, quindi funziona dopo la prima release con
+tag `vX.Y.Z` (la crea `build-apk.yml`).
+
+### Aggiornare gli screenshot
+
+Con l'app aperta sull'emulatore Android (vedi sopra) si cattura con
+`~/Library/Android/sdk/platform-tools/adb exec-out screencap -p > shot.png`; poi si ridimensiona e si salva in
+`site/shots/` (JPEG, 720×1600 circa): `sips -Z 1600 -s format jpeg -s formatOptions 80 shot.png --out site/shots/<nome>.jpg`.
+
 ## Architettura esagonale
 
 ```
