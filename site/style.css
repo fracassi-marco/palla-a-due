@@ -39,10 +39,14 @@ footer{padding-top:24px;padding-bottom:40px;color:var(--muted);font-size:14px;bo
 .muted{color:var(--muted)}
 footer p{margin:4px 0}
 .trial{padding-bottom:64px}
-.trial p{color:var(--muted);max-width:40em;font-size:18px}
-.trial form{display:flex;flex-wrap:wrap;gap:12px;margin-top:20px}
-.trial input[type=email]{flex:1 1 260px;max-width:420px;padding:13px 16px;border-radius:12px;border:1px solid #2B3558;background:var(--card);color:var(--text);font:inherit}
-.trial button{border:0;cursor:pointer;font:inherit;font-weight:700}
+.trial-card{background:var(--card);border-radius:16px;padding:32px;box-shadow:0 30px 80px rgba(124,58,237,.18)}
+.trial-card h2{margin:0 0 8px}
+.trial-card p{color:var(--muted);max-width:36em;margin:0}
+.trial form{display:flex;flex-wrap:wrap;gap:12px;margin-top:22px}
+.trial input[type=email]{flex:1 1 260px;max-width:420px;padding:13px 16px;border-radius:12px;border:1px solid #2B3558;background:var(--bg);color:var(--text);font:inherit;outline:0}
+.trial input[type=email]::placeholder{color:var(--muted)}
+.trial input[type=email]:focus{border-color:var(--orange)}
+.trial button{border:0;cursor:pointer;font:inherit;font-weight:700;line-height:inherit}
 .trial button:disabled{opacity:.6}
-.form-msg{min-height:1.5em}
+.trial .form-msg{min-height:1.5em;margin-top:14px;font-size:15px}
 html{scroll-behavior:smooth}
