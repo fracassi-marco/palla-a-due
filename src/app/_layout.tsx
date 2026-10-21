@@ -1,6 +1,7 @@
-import { Barlow_500Medium, Barlow_700Bold } from '@expo-google-fonts/barlow';
-import { BarlowCondensed_700Bold } from '@expo-google-fonts/barlow-condensed';
-import { BebasNeue_400Regular } from '@expo-google-fonts/bebas-neue';
+import { Barlow_500Medium } from '@expo-google-fonts/barlow/500Medium';
+import { Barlow_700Bold } from '@expo-google-fonts/barlow/700Bold';
+import { BarlowCondensed_700Bold } from '@expo-google-fonts/barlow-condensed/700Bold';
+import { BebasNeue_400Regular } from '@expo-google-fonts/bebas-neue/400Regular';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';

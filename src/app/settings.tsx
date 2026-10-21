@@ -1,5 +1,5 @@
 import Constants from 'expo-constants';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useCases } from '../di/container';
 import { SectionTitle } from '../presentation/components/SectionTitle';
