@@ -101,7 +101,7 @@ async function download(kind, sourcesByLeague) {
         console.warn(`  salto ${kind}/${key} (${res.status})`);
         continue;
       }
-      const tmp = await mkdtemp(path.join(os.tmpdir(), 'tuttobasket-'));
+      const tmp = await mkdtemp(path.join(os.tmpdir(), 'pallaadue-'));
       try {
         await writeFile(path.join(tmp, 'original'), buf);
         await toWebp(kind, path.join(tmp, 'original'), path.join(dir, name));

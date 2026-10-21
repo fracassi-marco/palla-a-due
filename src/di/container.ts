@@ -32,11 +32,11 @@ const LBA_API_BASE_URL = 'https://www.legabasket.it/api';
 
 /** Ogni campionato ha il suo database: gli id di LBA, LNP ed Euroleague, e quelli delle stagioni, non devono mescolarsi. */
 const DATABASE_NAMES: Record<LeagueId, string> = {
-  lba: 'tuttobasket.db',
-  a2: 'tuttobasket-a2.db',
-  b: 'tuttobasket-b.db',
-  euroleague: 'tuttobasket-euroleague.db',
-  eurocup: 'tuttobasket-eurocup.db',
+  lba: 'pallaadue.db',
+  a2: 'pallaadue-a2.db',
+  b: 'pallaadue-b.db',
+  euroleague: 'pallaadue-euroleague.db',
+  eurocup: 'pallaadue-eurocup.db',
 };
 
 const createSource = (league: LeagueId): LeagueSource => {

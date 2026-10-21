@@ -4,7 +4,7 @@ Le schermate leggono **solo** dal database SQLite (`expo-sqlite`). La rete è us
 esclusivamente da `SyncLeague` (`src/application/SyncLeague.ts`), che scarica ciò che il database non ha ancora.
 
 Ogni campionato ha il suo database e la sua `SyncLeague` (`di/container.ts`, creati alla prima selezione):
-`tuttobasket.db` (LBA, base URL API `https://www.legabasket.it/api`), `tuttobasket-a2.db` e `tuttobasket-b.db`
+`pallaadue.db` (LBA, base URL API `https://www.legabasket.it/api`), `pallaadue-a2.db` e `pallaadue-b.db`
 (LNP: vedi `docs/api-lnp.md`). Gli id di LBA e LNP, e quelli di stagioni diverse, non si mescolano mai. La tabella
 sotto descrive le chiamate della LBA; LNP segue le stesse regole di validità con le sue sorgenti.
 

@@ -72,7 +72,7 @@ function Home() {
         <LinearGradient colors={[colors.orangeDeep, colors.orange, colors.yellow]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
           <Ionicons name="basketball" size={84} color="rgba(11,16,32,0.14)" style={styles.heroBall} />
           <Text style={styles.heroKicker}>{league.title}</Text>
-          <Text style={styles.heroTitle}>TUTTO BASKET</Text>
+          <Text style={styles.heroTitle}>PALLA A DUE</Text>
           <Link href="/settings" asChild>
             <Pressable hitSlop={12} style={styles.settingsBtn} accessibilityLabel="Impostazioni">
               <Ionicons name="settings-outline" size={22} color={colors.bg} />

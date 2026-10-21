@@ -1,15 +1,17 @@
 {
   "expo": {
-    "name": "TuttoBasket",
-    "slug": "tuttobasket",
+    "name": "Palla a Due",
+    "slug": "palla-a-due",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "ios": {
+      "bundleIdentifier": "it.app.pallaadue",
       "supportsTablet": true
     },
     "android": {
+      "package": "it.app.pallaadue",
       "adaptiveIcon": {
         "backgroundColor": "#0B1020",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -27,7 +29,7 @@
       "expo-router",
       "expo-sqlite"
     ],
-    "scheme": "tuttobasket",
+    "scheme": "pallaadue",
     "backgroundColor": "#0B1020"
   }
 }

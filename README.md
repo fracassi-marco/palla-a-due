@@ -1,4 +1,4 @@
-# TuttoBasket 🏀
+# Palla a Due 🏀
 
 App Expo (iOS/Android) con classifica, prossime partite, roster e statistiche dei giocatori di LBA, Serie A2, Serie B Nazionale, EuroLeague ed EuroCup
 (si sceglie dalla home; la LBA è il predefinito).

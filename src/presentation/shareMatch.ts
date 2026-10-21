@@ -19,7 +19,7 @@ export function matchShareText(m: ShareableMatch): string {
   } else {
     lines.push(`${m.homeName} ${m.homeScore}-${m.awayScore} ${m.awayName}`, m.status === 'live' ? `🔴 LIVE · ${when}` : `Finale · ${when}`);
   }
-  lines.push('', 'via Tutto Basket');
+  lines.push('', 'via Palla a Due');
   return lines.join('\n');
 }
 
