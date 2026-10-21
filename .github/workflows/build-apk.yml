@@ -13,7 +13,7 @@ jobs:
   build-apk:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
     env:
       CI: "1"
     steps:
@@ -90,24 +90,6 @@ jobs:
             -Pandroid.enableMinifyInReleaseBuilds=true \
             -Pandroid.enableShrinkResourcesInReleaseBuilds=true
           rm -f "$RUNNER_TEMP/upload-keystore.jks"
-
-      - name: Locate APK
-        id: apk
-        run: |
-          APK_PATH=$(find android/app/build/outputs/apk/release -name "*.apk" | head -n 1)
-          echo "path=$APK_PATH" >> "$GITHUB_OUTPUT"
-
-      - name: Rename APK
-        if: startsWith(github.ref, 'refs/tags/')
-        run: cp "${{ steps.apk.outputs.path }}" "palla-a-due-${{ github.ref_name }}.apk"
-
-      - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
-          files: palla-a-due-${{ github.ref_name }}.apk
 
       - name: Upload AAB artifact
         if: startsWith(github.ref, 'refs/tags/')
