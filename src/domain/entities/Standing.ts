@@ -14,10 +14,14 @@ export interface Standing {
   wins: number;
   losses: number;
   points: number;
+  /** Vittorie / partite giocate (0-1). */
+  winPercentage: number;
   pointsFor: number;
   pointsAgainst: number;
   avgPointsFor: number;
   avgPointsAgainst: number;
   playoffQualified: boolean;
+  /** Posto di spareggio (play-in) subito dopo quelli playoff. */
+  playIn: boolean;
   relegation: boolean;
 }

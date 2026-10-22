@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Scarica loghi delle squadre e foto dei giocatori di LBA, Serie A2 e Serie B Nazionale (LNP) e genera
+// Scarica loghi delle squadre e foto dei giocatori di LBA, Serie A2, Serie B Nazionale (LNP) e NBA e genera
 // il manifest `src/infrastructure/images/manifest.ts` usato dall'app.
 // Uso: node scripts/download-images.mjs [anno-inizio-stagione]
 import { execFile } from 'node:child_process';
@@ -12,6 +12,23 @@ import { fileURLToPath } from 'node:url';
 const API = 'https://www.legabasket.it/api';
 const CDN = 'https://lba-media.s3.eu-south-1.amazonaws.com';
 const LNP_SITE = 'https://www.legapallacanestro.com';
+// NBA: l'anagrafica sta nel CDN ufficiale, che risponde 403 ai client senza intestazioni da browser (vedi NBA_HEADERS in
+// src/infrastructure/nba/NbaLeagueSource.ts, da tenere uguali); foto in grande dimensione, ridimensionate in WebP come le altre.
+const NBA_PLAYER_INDEX = 'https://cdn.nba.com/static/json/staticData/playerIndex.json';
+const NBA_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+  Accept: '*/*',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Accept-Encoding': 'gzip, deflate, br',
+  Referer: 'https://www.nba.com/',
+  Origin: 'https://www.nba.com',
+  'sec-fetch-mode': 'cors',
+  'sec-fetch-site': 'same-site',
+  'sec-ch-ua': '"Chromium";v="126"',
+};
+const NBA_HEADSHOT = 'https://cdn.nba.com/headshots/nba/latest/1040x760';
+// Gli id delle squadre NBA vanno da 1610612737 a 1610612766: i giocatori svincolati hanno TEAM_ID 0.
+const NBA_TEAM_ID = /^16106127[3-6]\d$/;
 // Pagine con l'elenco delle squadre di Serie A2 e B Nazionale, con la cartella (campionato) in cui salvarle.
 // Le immagini stanno in assets/images/<teams|players>/<campionato>/; non c'è una cartella per stagione perché le chiavi
 // sono stabili (un giocatore confermato non viene scaricato di nuovo) e lo storico è già in git.
@@ -63,12 +80,15 @@ async function download(kind, sourcesByLeague) {
   const dir = path.join(imagesDir, kind);
   const files = await existing(dir);
   const jobs = [];
-  const seen = new Set();
+  const seen = new Map();
   for (const [league, sources] of Object.entries(sourcesByLeague)) {
     await mkdir(path.join(dir, league), { recursive: true });
     for (const [key, url] of sources) {
-      if (seen.has(key)) continue;
-      seen.add(key);
+      if (seen.has(key)) {
+        if (seen.get(key) !== url) console.warn(`  collisione sulla chiave ${kind}/${key}: ${seen.get(key)} e ${url}`);
+        continue;
+      }
+      seen.set(key, url);
       jobs.push({ key, url, league });
     }
   }
@@ -125,8 +145,8 @@ const rs = competitions.find((c) => c.ctype_code === 'RS' && c.cserie_code === '
 if (!rs) throw new Error(`Regular Season Serie A ${season} non trovata`);
 const { standings } = await getJson('/championships/get-championship-ranking', { id: rs.id });
 
-const teamSources = { lba: new Map(), a2: new Map(), b: new Map() };
-const playerSources = { lba: new Map(), a2: new Map(), b: new Map() };
+const teamSources = { lba: new Map(), a2: new Map(), b: new Map(), nba: new Map() };
+const playerSources = { lba: new Map(), a2: new Map(), b: new Map(), nba: new Map() };
 const lbaImage = (key) => [key, `${CDN}/${key}`];
 for (const s of standings) {
   if (s.logo_key) teamSources.lba.set(...lbaImage(s.logo_key));
@@ -158,6 +178,26 @@ for (const [list, league] of LNP_TEAM_LISTS) {
     }
   }
   console.log(`LNP ${list}: ${teams.length} squadre`);
+}
+
+// NBA: i logo hanno l'URL di `logoUrl` in src/infrastructure/nba/teams.ts, le foto la chiave `<personId>.png` (come in `headshotUrl`).
+{
+  const res = await fetch(NBA_PLAYER_INDEX, { headers: NBA_HEADERS });
+  if (!res.ok) throw new Error(`NBA playerIndex ${res.status}`);
+  const { headers, rowSet } = (await res.json()).resultSets[0];
+  const col = (name) => headers.indexOf(name);
+  const logos = new Map();
+  for (const row of rowSet) {
+    const teamId = String(row[col('TEAM_ID')]);
+    if (!NBA_TEAM_ID.test(teamId)) continue;
+    const id = row[col('PERSON_ID')];
+    playerSources.nba.set(`${id}.png`, `${NBA_HEADSHOT}/${id}.png`);
+    // La sigla ESPN coincide con quella NBA tranne per sei squadre.
+    const code = { GSW: 'gs', NOP: 'no', NYK: 'ny', SAS: 'sa', UTA: 'utah', WAS: 'wsh' }[row[col('TEAM_ABBREVIATION')]] ?? row[col('TEAM_ABBREVIATION')].toLowerCase();
+    logos.set(`${code}.png`, `https://a.espncdn.com/i/teamlogos/nba/500/${code}.png`);
+  }
+  for (const [key, url] of logos) teamSources.nba.set(key, url);
+  console.log(`NBA: ${logos.size} squadre, ${playerSources.nba.size} giocatori`);
 }
 
 const teams = await download('teams', teamSources);

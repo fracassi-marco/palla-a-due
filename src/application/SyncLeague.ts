@@ -189,8 +189,8 @@ export class SyncLeague {
     let stored = await this.store.getCompetitions(season);
     if (stored.length === 0) {
       const found = await withRetry(() => this.source.findRegularSeasons(season));
-      for (const competition of found) await this.store.saveCompetition(competition, null);
-      stored = found.map((competition) => ({ ...competition, totalDays: null }));
+      for (const competition of found) await this.store.saveCompetition(competition, competition.totalDays ?? null);
+      stored = found.map((competition) => ({ ...competition, totalDays: competition.totalDays ?? null }));
     }
 
     return Promise.all(

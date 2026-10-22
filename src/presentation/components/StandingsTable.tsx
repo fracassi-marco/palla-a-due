@@ -4,7 +4,10 @@ import { colors, fonts, radius } from '../theme';
 import { useOpenTeam } from '../hooks/useOpenTeam';
 import { TeamLogo } from './TeamLogo';
 
-export function StandingsTable({ standings }: { standings: Standing[] }) {
+/** Con `byWinPercentage` l'ultima colonna è la percentuale di vittorie (".667") invece dei punti in classifica. */
+const percentage = (value: number) => (value >= 1 ? '1.000' : value.toFixed(3).slice(1));
+
+export function StandingsTable({ standings, byWinPercentage = false }: { standings: Standing[]; byWinPercentage?: boolean }) {
   const openTeam = useOpenTeam();
   return (
     <View style={styles.table}>
@@ -14,10 +17,10 @@ export function StandingsTable({ standings }: { standings: Standing[] }) {
         <Text style={[styles.headText, styles.num]}>G</Text>
         <Text style={[styles.headText, styles.num]}>V</Text>
         <Text style={[styles.headText, styles.num]}>P</Text>
-        <Text style={[styles.headText, styles.pts]}>PT</Text>
+        <Text style={[styles.headText, styles.pts]}>{byWinPercentage ? 'PCT' : 'PT'}</Text>
       </View>
       {standings.map((s, i) => {
-        const zone = s.relegation ? colors.red : s.playoffQualified ? colors.green : 'transparent';
+        const zone = s.relegation ? colors.red : s.playoffQualified ? colors.green : s.playIn ? colors.orange : 'transparent';
         return (
           <Pressable key={s.team.id} onPress={() => openTeam(s.team.id, s.team.name, s.team.logoUrl)} style={({ pressed }) => [styles.row, i % 2 === 0 && styles.zebra, pressed && styles.pressed]}>
             <View style={[styles.zone, { backgroundColor: zone }]} />
@@ -32,7 +35,7 @@ export function StandingsTable({ standings }: { standings: Standing[] }) {
             <Text style={[styles.cell, styles.num]}>{s.wins}</Text>
             <Text style={[styles.cell, styles.num]}>{s.losses}</Text>
             <View style={styles.pts}>
-              <Text style={styles.ptsText}>{s.points}</Text>
+              <Text style={byWinPercentage ? styles.pctText : styles.ptsText}>{byWinPercentage ? percentage(s.winPercentage) : s.points}</Text>
             </View>
           </Pressable>
         );
@@ -58,4 +61,5 @@ const styles = StyleSheet.create({
   cell: { color: colors.textMuted, fontFamily: fonts.bodyBold, fontSize: 14 },
   pts: { width: 40, alignItems: 'center', justifyContent: 'center' },
   ptsText: { color: colors.yellow, fontFamily: fonts.display, fontSize: 24 },
+  pctText: { color: colors.yellow, fontFamily: fonts.display, fontSize: 17 },
 });

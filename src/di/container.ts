@@ -26,6 +26,8 @@ import { EuroleagueV1LeagueSource } from '../infrastructure/euroleague/Euroleagu
 import { EUROCUP, EUROLEAGUE, EuroleagueSeries } from '../infrastructure/euroleague/series';
 import { FallbackLeagueSource } from '../infrastructure/fallback/FallbackLeagueSource';
 import { LnpLeagueSource } from '../infrastructure/lnp/LnpLeagueSource';
+import { NbaEspnLeagueSource } from '../infrastructure/nba/NbaEspnLeagueSource';
+import { NBA_HEADERS, NbaLeagueSource } from '../infrastructure/nba/NbaLeagueSource';
 import { LNP_A2, LNP_B } from '../infrastructure/lnp/series';
 import { FavoriteTeamStore } from '../infrastructure/storage/FavoriteTeamStore';
 import { SelectedLeagueStore } from '../infrastructure/storage/SelectedLeagueStore';
@@ -40,6 +42,7 @@ const DATABASE_NAMES: Record<LeagueId, string> = {
   b: 'pallaadue-b.db',
   euroleague: 'pallaadue-euroleague.db',
   eurocup: 'pallaadue-eurocup.db',
+  nba: 'pallaadue-nba.db',
 };
 
 /** Id delle leghe su TheSportsDB (backup di calendario e punteggi per i campionati con una sola fonte). */
@@ -61,6 +64,8 @@ const createSource = (league: LeagueId, matches: MatchRepository): LeagueSource 
       return euroleagueSource(http, EUROLEAGUE);
     case 'eurocup':
       return euroleagueSource(http, EUROCUP);
+    case 'nba':
+      return new FallbackLeagueSource(new NbaLeagueSource(new FetchHttpClient('', NBA_HEADERS)), [new NbaEspnLeagueSource(http)]);
   }
 };
 
@@ -78,7 +83,12 @@ function createUseCases(league: LeagueId) {
 
   const competitions = new SqliteCompetitionRepository(database);
   const matches = new SqliteMatchRepository(database);
-  const standings = new SqliteStandingsRepository(database, leagueInfo(league));
+  const info = leagueInfo(league);
+  // Con le conference la classifica generale resta senza zone: posizioni e zone si assegnano a ogni conference (GetStandings).
+  const standings = new SqliteStandingsRepository(
+    database,
+    info.conferences ? { playoffSpots: 0, relegationSpots: 0, byWinPercentage: info.byWinPercentage } : info,
+  );
   const teams = new SqliteTeamRepository(database);
   const players = new SqlitePlayerRepository(database);
 
@@ -86,7 +96,7 @@ function createUseCases(league: LeagueId) {
 
   return {
     sync: new SyncLeague(createSource(league, matches), new SqliteLeagueStore(database)),
-    getStandings: new GetStandings(competitions, standings),
+    getStandings: new GetStandings(competitions, standings, info),
     getCurrentRound,
     getCalendar: new GetCalendar(competitions, matches, standings, getCurrentRound),
     getMatch: new GetMatch(competitions, matches),

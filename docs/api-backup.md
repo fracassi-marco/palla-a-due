@@ -15,6 +15,7 @@ della principale (un backup può coprire solo una parte dei dati e rifiutare il 
 | Serie A2 | `lnpstat.domino.it` + HTML LNP | TheSportsDB (lega 5377) | Come LBA |
 | Serie B Nazionale | `lnpstat.domino.it` + HTML LNP | nessuno | – |
 | EuroLeague / EuroCup | API v2 `api-live.euroleague.net` | API v1 `api-live.euroleague.net/v1` | Tutto: competizioni, calendario, punteggi, box score, roster |
+| NBA | `cdn.nba.com/static/json` | Tabellone ESPN `site.api.espn.com` | Calendario, stato e punteggi (anche live) |
 
 ## Euroleague API v1 (`EuroleagueV1LeagueSource`)
 
@@ -61,12 +62,32 @@ Limiti:
   aggiorna il risultato a fine partita);
 - box score e roster non hanno backup: durante un guasto della principale falliscono e compaiono nell'errore di sincronizzazione.
 
+## ESPN per la NBA (`NbaEspnLeagueSource`)
+
+JSON, senza chiave né protezioni: `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=<AAAAMMGG>`
+(partite del giorno a ora della costa Est, con stato `pre`/`in`/`post`, punteggio, orario UTC, campo). L'intervallo di date
+(`dates=a-b`) e `limit` rispondono 400: una richiesta per giorno, sette per giornata (8 KB l'una), in parallelo.
+
+ESPN **può creare** partite e competizioni, perché l'id numerico di una partita dipende solo da data e squadre (vedi `docs/api-nba.md`);
+le squadre si associano alla tabella fissa di `nba/teams.ts` per sigla (ESPN scrive `GS`, `NO`, `NY`, `SA`, `UTAH`, `WSH`). Le settimane
+si calcolano da data e anno come per la fonte principale. Scartati gli eventi non di Regular Season (`season.type` ≠ 2), quelli con
+squadre `TBD` e i turni a eliminazione della NBA Cup (`notes`: "NBA Cup - Quarterfinals…").
+
+Verificato il 22/10/2026 contro la fonte principale su tutta la stagione: 1.200 partite, stesso id, stato, punteggio e settimana in 1.200 casi
+su 1.200; l'orario di inizio differisce in un caso (20 minuti).
+
+Limiti: **box score e roster non sono disponibili** (ESPN ha id propri per i giocatori, non associabili ai `personId` NBA già nel
+database senza confrontare i nomi, e creerebbe duplicati): durante un guasto della principale falliscono e compaiono nell'errore di
+sincronizzazione. Il backup non protegge dalla stessa causa di guasto di rete del dispositivo.
+
 ## Valutate e scartate
 
 | Fonte | Esito |
 |---|---|
 | Kambi (`eu-offering-api.kambicdn.com`, quote Unibet) | JSON pubblico, ha la EuroLeague con `state`; non ha LBA né EuroCup maschile, il live non verificato (nessuna partita aperta), termini d'uso poco chiari |
 | SofaScore (`api.sofascore.com`) | Non risponde a client non-browser; non ufficiale e a rischio ToS |
-| ESPN | Nessuna di queste leghe |
+| ESPN (altre leghe) | Nessuna di queste leghe; per la NBA è il backup |
 | API-Basketball (api-sports.io) | Copre LBA e altre; chiave a registrazione e piano gratuito di 100 richieste al giorno, troppo poche per un refresh ogni 30 s. Non verificata |
 | Genius Sports / FIBA LiveStats (`fibalivestats…/data.json`) | Nessun riferimento nelle pagine LNP: non si sa se Serie A2/B lo usino. Sarebbe il candidato per box score e live della LNP |
+| NBA `stats.nba.com` (`commonteamroster`, `leaguestandingsv3`, `boxscoretraditionalv3`) | Rispondono da un browser su nba.com ma non a curl (timeout): più ostile del CDN; non usato. Servirebbe per l'allenatore e per la classifica per conference |
+| NBA `cdn.nba.com/static/json/staticData/scheduleLeagueV2_1.json` | Stesso contenuto del `scheduleLeagueV2.json` (7 MB), nessun vantaggio |

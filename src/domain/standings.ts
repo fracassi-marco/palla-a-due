@@ -1,4 +1,5 @@
 import { Standing, TeamRef } from './entities';
+import { Conference } from './League';
 
 /** Una partita conclusa dal punto di vista di una squadra. */
 export interface TeamGame {
@@ -12,6 +13,9 @@ export interface TeamGame {
 export interface StandingsZones {
   playoffSpots: number;
   relegationSpots: number;
+  /** Ordina per percentuale di vittorie (NBA) invece che per punti in classifica. */
+  byWinPercentage?: boolean;
+  playInSpots?: number;
 }
 
 interface Row {
@@ -23,6 +27,7 @@ interface Row {
 }
 
 const leaguePoints = (wins: number) => 2 * wins;
+const winPercentage = (row: Row) => (row.played > 0 ? row.wins / row.played : 0);
 
 function tally(teams: TeamRef[], games: TeamGame[]): Row[] {
   const rows = new Map<number, Row>(
@@ -40,19 +45,22 @@ function tally(teams: TeamRef[], games: TeamGame[]): Row[] {
 }
 
 /**
- * Ordina le squadre: punti, poi tra pari merito punti e differenza canestri negli scontri diretti,
+ * Ordina le squadre: punti (o percentuale di vittorie), poi tra pari merito punti e differenza canestri negli scontri diretti,
  * poi differenza canestri generale, poi punti fatti. Semplificazione rispetto al regolamento:
  * con più squadre a pari merito gli scontri diretti non vengono ricalcolati ricorsivamente.
  */
-function rank(rows: Row[], games: TeamGame[]): Row[] {
+function rank(rows: Row[], games: TeamGame[], byWinPercentage: boolean): Row[] {
+  // Con la percentuale due squadre sono pari merito se hanno lo stesso rapporto (3-1 e 6-2); i punti sono 2 a vittoria.
+  const score = (row: Row) => (byWinPercentage ? winPercentage(row) : leaguePoints(row.wins));
+  const h2hScore = (wins: number) => (byWinPercentage ? wins : leaguePoints(wins));
   const byPoints = new Map<number, Row[]>();
   for (const row of rows) {
-    const points = leaguePoints(row.wins);
+    const points = score(row);
     byPoints.set(points, [...(byPoints.get(points) ?? []), row]);
   }
 
   const keyed = rows.map((row) => {
-    const group = byPoints.get(leaguePoints(row.wins)) ?? [];
+    const group = byPoints.get(score(row)) ?? [];
     const ids = new Set(group.map((r) => r.team.id));
     let h2hWins = 0;
     let h2hDiff = 0;
@@ -63,7 +71,7 @@ function rank(rows: Row[], games: TeamGame[]): Row[] {
         h2hDiff += g.teamScore - g.opponentScore;
       }
     }
-    return { row, key: [leaguePoints(row.wins), leaguePoints(h2hWins), h2hDiff, row.pointsFor - row.pointsAgainst, row.pointsFor] };
+    return { row, key: [score(row), h2hScore(h2hWins), h2hDiff, row.pointsFor - row.pointsAgainst, row.pointsFor] };
   });
 
   keyed.sort((a, b) => {
@@ -79,7 +87,7 @@ function rank(rows: Row[], games: TeamGame[]): Row[] {
  * l'ordine può differire da quello della Lega (vedi `rank`).
  */
 export function computeStandings(teams: TeamRef[], games: TeamGame[], zones: StandingsZones): Standing[] {
-  return rank(tally(teams, games), games).map((row, i) => {
+  return rank(tally(teams, games), games, zones.byWinPercentage === true).map((row, i) => {
     const position = i + 1;
     const losses = row.played - row.wins;
     return {
@@ -89,12 +97,36 @@ export function computeStandings(teams: TeamRef[], games: TeamGame[], zones: Sta
       wins: row.wins,
       losses,
       points: leaguePoints(row.wins),
+      winPercentage: winPercentage(row),
       pointsFor: row.pointsFor,
       pointsAgainst: row.pointsAgainst,
       avgPointsFor: row.played > 0 ? row.pointsFor / row.played : 0,
       avgPointsAgainst: row.played > 0 ? row.pointsAgainst / row.played : 0,
-      playoffQualified: position <= zones.playoffSpots,
-      relegation: zones.relegationSpots > 0 && position > teams.length - zones.relegationSpots,
+      ...zoneFlags(position, teams.length, zones),
+    };
+  });
+}
+
+/** Zone di una posizione in una tabella di `teamCount` squadre. */
+function zoneFlags(position: number, teamCount: number, zones: StandingsZones) {
+  const playInEnd = zones.playoffSpots + (zones.playInSpots ?? 0);
+  return {
+    playoffQualified: position <= zones.playoffSpots,
+    playIn: position > zones.playoffSpots && position <= playInEnd,
+    relegation: zones.relegationSpots > 0 && position > teamCount - zones.relegationSpots,
+  };
+}
+
+/**
+ * Divide una classifica generale in tabelle per conference, mantenendo l'ordine, e ricalcola posizioni e zone su ciascuna.
+ * Una squadra che non è in nessuna conference non compare.
+ */
+export function splitByConference(standings: Standing[], conferences: Conference[], zones: StandingsZones): { name: string; standings: Standing[] }[] {
+  return conferences.map(({ name, teamCodes }) => {
+    const members = standings.filter((s) => teamCodes.includes(s.team.code));
+    return {
+      name,
+      standings: members.map((s, i) => ({ ...s, position: i + 1, ...zoneFlags(i + 1, members.length, zones) })),
     };
   });
 }

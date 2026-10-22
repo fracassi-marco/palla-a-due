@@ -14,7 +14,7 @@ import { Empty, ErrorView, Loading } from '../presentation/components/StateViews
 import { StandingsTable } from '../presentation/components/StandingsTable';
 import { RANKING_STATS } from '../presentation/rankingStats';
 import { useOpenMatch } from '../presentation/hooks/useOpenMatch';
-import { favoriteFirst } from '../domain/favoriteFirst';
+import { favoriteFirst, favoriteGroupFirst } from '../domain/favoriteFirst';
 import { useFavoriteTeamId } from '../presentation/hooks/useFavoriteTeam';
 import { useLeague } from '../presentation/hooks/useLeague';
 import { useAsync } from '../presentation/hooks/useAsync';
@@ -70,6 +70,8 @@ function Home() {
   const favoriteId = useFavoriteTeamId();
   const roundMatches = useMemo(() => favoriteFirst(matches.data ?? [], favoriteId), [matches.data, favoriteId]);
 
+  const standingsGroups = useMemo(() => favoriteGroupFirst(standings.data ?? [], favoriteId), [standings.data, favoriteId]);
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView
@@ -122,16 +124,16 @@ function Home() {
           <ErrorView onRetry={standings.reload} />
         ) : standings.data && standings.data.some((g) => g.standings.length > 0) ? (
           <>
-            {standings.data.map((group) => (
-              <View key={group.competitionId} style={styles.group}>
+            {standingsGroups.map((group) => (
+              <View key={`${group.competitionId}:${group.name}`} style={styles.group}>
                 {standings.data!.length > 1 ? <Text style={styles.groupTitle}>{group.name.toUpperCase()}</Text> : null}
-                <StandingsTable standings={group.standings} />
+                <StandingsTable standings={group.standings} byWinPercentage={league.byWinPercentage} />
               </View>
             ))}
             {league.playoffSpots > 0 ? (
               <View style={styles.legend}>
                 <LegendDot color={colors.green} label="Playoff" />
-                <LegendDot color={colors.orange} label="Zona playoff" />
+                <LegendDot color={colors.orange} label={league.playInSpots ? 'Play-in' : 'Zona playoff'} />
                 {league.relegationSpots > 0 ? <LegendDot color={colors.red} label="Retrocessione" /> : null}
               </View>
             ) : null}

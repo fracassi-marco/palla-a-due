@@ -3,7 +3,7 @@ import { LEAGUES } from '../../domain/League';
 import { setLeague, useLeague } from '../hooks/useLeague';
 import { colors, fonts, radius } from '../theme';
 
-/** Scelta del campionato: LBA, Serie A2, Serie B, EuroLeague o EuroCup. */
+/** Scelta del campionato: LBA, NBA, Serie A2, Serie B, EuroLeague o EuroCup. */
 export function LeagueSelector() {
   const current = useLeague();
   return (

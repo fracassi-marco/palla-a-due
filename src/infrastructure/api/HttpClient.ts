@@ -25,8 +25,14 @@ function logRequest(url: string, status: number | string, startedAt: number, ret
 }
 
 export class FetchHttpClient implements HttpClient {
-  /** I percorsi che iniziano con `http` sono URL assoluti e ignorano `baseUrl`. */
-  constructor(private readonly baseUrl = '') {}
+  /**
+   * I percorsi che iniziano con `http` sono URL assoluti e ignorano `baseUrl`.
+   * `headers` si aggiungono a ogni richiesta (e prevalgono su `Accept`): alcune fonti rifiutano i client senza intestazioni da browser.
+   */
+  constructor(
+    private readonly baseUrl = '',
+    private readonly headers: Record<string, string> = {},
+  ) {}
 
   async get<T>(path: string, params: Params = {}): Promise<T> {
     return (await this.request(path, params, 'application/json')).json() as Promise<T>;
@@ -45,7 +51,7 @@ export class FetchHttpClient implements HttpClient {
     const startedAt = Date.now();
     let response: Response;
     try {
-      response = await fetch(url, { headers: { Accept: accept } });
+      response = await fetch(url, { headers: { Accept: accept, ...this.headers } });
     } catch (error) {
       logRequest(url, 'ERRORE DI RETE', startedAt);
       throw error;

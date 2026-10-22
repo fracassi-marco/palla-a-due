@@ -27,9 +27,11 @@ export class GetCalendar {
       this.currentRound.execute(now),
       Promise.all(competitions.map((c) => this.standings.getStandings(c.id).catch(() => []))),
     ]);
-    // Girone all'italiana andata/ritorno: 2 * (squadre - 1) giornate.
+    // Il numero di giornate lo dà la fonte (NBA: settimane); altrimenti girone all'italiana andata/ritorno: 2 * (squadre - 1).
     const totalDays = Math.max(
-      ...tables.map((standings) => (standings.length > 1 ? 2 * (standings.length - 1) : DEFAULT_TOTAL_DAYS)),
+      ...tables.map((standings, i) =>
+        competitions[i].totalDays ?? (standings.length > 1 ? 2 * (standings.length - 1) : DEFAULT_TOTAL_DAYS),
+      ),
     );
     return { competitionIds: competitions.map((c) => c.id), initialDay: round[0]?.dayNumber ?? 1, totalDays };
   }
