@@ -255,10 +255,13 @@ export class SqliteLeagueStore implements LeagueStore {
                                 birth_date, birth_place, height_cm, weight_kg, has_bio)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
            ON CONFLICT (id) DO UPDATE SET team_id = excluded.team_id, first_name = excluded.first_name,
-             last_name = excluded.last_name, number = excluded.number, photo_url = excluded.photo_url,
-             role = excluded.role, country = excluded.country, birth_date = excluded.birth_date,
-             birth_place = excluded.birth_place, height_cm = excluded.height_cm,
-             weight_kg = excluded.weight_kg, has_bio = 1`,
+             last_name = excluded.last_name, number = excluded.number,
+             photo_url = COALESCE(excluded.photo_url, photo_url),
+             role = excluded.role, country = excluded.country,
+             birth_date = COALESCE(excluded.birth_date, birth_date),
+             birth_place = excluded.birth_place,
+             height_cm = COALESCE(excluded.height_cm, height_cm),
+             weight_kg = COALESCE(excluded.weight_kg, weight_kg), has_bio = 1`,
           [
             p.id,
             roster.team.id,

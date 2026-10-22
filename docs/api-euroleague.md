@@ -32,3 +32,7 @@ oppure hash fuori intervallo (`BEY`). EuroLeague ed EuroCup hanno ciascuna il pr
 - La classifica è calcolata dalle partite con l'ordinamento di `domain/standings.ts`, non con gli spareggi ufficiali della competizione.
 - La città della partita non è disponibile; il nome del campo sì.
 - Ruoli tradotti (Guard → Guardia, Forward → Ala, Center → Centro); la nazionalità resta in inglese.
+
+## Backup
+
+Se la v2 si guasta (rete, 5xx, 429, formato inatteso) si usa la v1 XML (`EuroleagueV1LeagueSource`), con gli stessi id: endpoint, differenze e limiti in `docs/api-backup.md`.

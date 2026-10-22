@@ -10,8 +10,8 @@ import { GetTeamStats } from '../application/GetTeamStats';
 import { currentSeasonYear } from '../application/season';
 import { SyncLeague } from '../application/SyncLeague';
 import { LEAGUES, LeagueId, leagueInfo } from '../domain/League';
-import { LeagueSource } from '../domain/ports';
-import { ApiLeagueSource, FetchHttpClient } from '../infrastructure/api';
+import { LeagueSource, MatchRepository } from '../domain/ports';
+import { ApiLeagueSource, FetchHttpClient, HttpClient } from '../infrastructure/api';
 import {
   ExpoSqliteDatabase,
   SqliteCompetitionRepository,
@@ -22,11 +22,14 @@ import {
   SqliteTeamRepository,
 } from '../infrastructure/db';
 import { EuroleagueLeagueSource } from '../infrastructure/euroleague/EuroleagueLeagueSource';
-import { EUROCUP, EUROLEAGUE } from '../infrastructure/euroleague/series';
+import { EuroleagueV1LeagueSource } from '../infrastructure/euroleague/EuroleagueV1LeagueSource';
+import { EUROCUP, EUROLEAGUE, EuroleagueSeries } from '../infrastructure/euroleague/series';
+import { FallbackLeagueSource } from '../infrastructure/fallback/FallbackLeagueSource';
 import { LnpLeagueSource } from '../infrastructure/lnp/LnpLeagueSource';
 import { LNP_A2, LNP_B } from '../infrastructure/lnp/series';
 import { FavoriteTeamStore } from '../infrastructure/storage/FavoriteTeamStore';
 import { SelectedLeagueStore } from '../infrastructure/storage/SelectedLeagueStore';
+import { TheSportsDbLeagueSource } from '../infrastructure/thesportsdb/TheSportsDbLeagueSource';
 
 const LBA_API_BASE_URL = 'https://www.legabasket.it/api';
 
@@ -39,20 +42,32 @@ const DATABASE_NAMES: Record<LeagueId, string> = {
   eurocup: 'pallaadue-eurocup.db',
 };
 
-const createSource = (league: LeagueId): LeagueSource => {
+/** Id delle leghe su TheSportsDB (backup di calendario e punteggi per i campionati con una sola fonte). */
+const THESPORTSDB_LEAGUE = { lba: 4433, a2: 5377 } as const;
+
+const createSource = (league: LeagueId, matches: MatchRepository): LeagueSource => {
+  const http = new FetchHttpClient();
+  const sportsDb = (id: number) => new TheSportsDbLeagueSource(http, matches, id, currentSeasonYear);
   switch (league) {
     case 'lba':
-      return new ApiLeagueSource(new FetchHttpClient(LBA_API_BASE_URL));
+      return new FallbackLeagueSource(new ApiLeagueSource(new FetchHttpClient(LBA_API_BASE_URL)), [
+        sportsDb(THESPORTSDB_LEAGUE.lba),
+      ]);
     case 'a2':
-      return new LnpLeagueSource(new FetchHttpClient(), LNP_A2);
+      return new FallbackLeagueSource(new LnpLeagueSource(http, LNP_A2), [sportsDb(THESPORTSDB_LEAGUE.a2)]);
     case 'b':
-      return new LnpLeagueSource(new FetchHttpClient(), LNP_B);
+      return new LnpLeagueSource(http, LNP_B);
     case 'euroleague':
-      return new EuroleagueLeagueSource(new FetchHttpClient(), EUROLEAGUE, currentSeasonYear);
+      return euroleagueSource(http, EUROLEAGUE);
     case 'eurocup':
-      return new EuroleagueLeagueSource(new FetchHttpClient(), EUROCUP, currentSeasonYear);
+      return euroleagueSource(http, EUROCUP);
   }
 };
+
+const euroleagueSource = (http: HttpClient, series: EuroleagueSeries) =>
+  new FallbackLeagueSource(new EuroleagueLeagueSource(http, series, currentSeasonYear), [
+    new EuroleagueV1LeagueSource(http, series, currentSeasonYear),
+  ]);
 
 /**
  * Casi d'uso di un campionato. Le schermate leggono solo dal suo database locale;
@@ -70,7 +85,7 @@ function createUseCases(league: LeagueId) {
   const getCurrentRound = new GetCurrentRound(competitions, matches);
 
   return {
-    sync: new SyncLeague(createSource(league), new SqliteLeagueStore(database)),
+    sync: new SyncLeague(createSource(league, matches), new SqliteLeagueStore(database)),
     getStandings: new GetStandings(competitions, standings),
     getCurrentRound,
     getCalendar: new GetCalendar(competitions, matches, standings, getCurrentRound),

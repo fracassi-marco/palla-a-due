@@ -91,6 +91,7 @@ src/
 ├── application/       # casi d'uso: GetStandings, GetCurrentRound, GetTeamRoster… + SyncLeague (scarica solo ciò che manca)
 ├── infrastructure/
 │   ├── api/           # ApiLeagueSource (rete) + dto + mappers + HttpClient
+│   ├── fallback/      # FallbackLeagueSource: passa ai backup se la fonte principale si guasta
 │   └── db/            # SQLite: schema, migrazioni, repository di lettura e store di scrittura
 ├── di/container.ts    # composition root: lega porte e implementazioni
 ├── presentation/      # componenti, tema, hook
@@ -122,3 +123,6 @@ sito. Dettagli, endpoint e limiti in `docs/api-lnp.md` (gli endpoint ipotizzati 
 
 EuroLeague ed EuroCup usano `EuroleagueLeagueSource` sull'API ufficiale di Euroleague Basketball (JSON). Dettagli e limiti in
 `docs/api-euroleague.md`.
+
+Se una fonte si guasta l'app passa a un backup (EuroLeague v1 per le coppe, TheSportsDB per i risultati di LBA e A2); fonti,
+copertura e limiti in `docs/api-backup.md`.

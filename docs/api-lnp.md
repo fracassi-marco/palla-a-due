@@ -33,3 +33,4 @@ competizione = `anno(2 cifre) * 10 + cifra del girone`; partita = `competizione 
 - Il nome/cognome dei giocatori nei box score è dedotto ("Nome Cognome", prima parola = nome) finché non si scarica il
   roster, che poi lo corregge.
 - Play-off, fase "ad orologio" della A2 e coppe non sono gestiti: solo la Regular Season.
+- Backup: solo per la Serie A2 (TheSportsDB, stato e punteggio delle partite già note); la Serie B non ne ha. Vedi `docs/api-backup.md`.

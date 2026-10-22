@@ -37,6 +37,26 @@ FROM player_season_totals t JOIN players p ON p.id = t.player_id
 WHERE t.games >= 3 ORDER BY ppg DESC LIMIT 10;
 ```
 
+## Copertura e cache per campionato
+
+Per ogni campionato, quali funzioni sono attive, quale chiamata le alimenta e quanto resta valido il dato.
+✓ = attivo, ~ = parziale (stato e punteggio live dedotti, mai osservati con una partita in corso: vedi `docs/api-lnp.md`).
+`dayTtl` è la validità di una giornata non conclusa (sezione sopra); "mai più" = il dato è definitivo e non si riscarica.
+Calendario e statistiche riguardano la sola Regular Season (per EuroLeague ed EuroCup, la fase a gironi).
+
+| Campionato | Statistiche | Calendario | Punteggi live | Tabellini live |
+|---|---|---|---|---|
+| **LBA** | ✓ `get-championships-matches-scores-by-id?id=` (box score) e `get-team-roster?id=` (roster); medie e classifiche calcolate dal database.<br>**Cache:** box score mai più dopo 3 h dalla palla a due con almeno un giocatore; roster finché non compaiono giocatori nuovi | ✓ `get-championships-calendar-by-id?id=&d=`.<br>**Cache:** mai più a giornata conclusa; altrimenti `dayTtl` (15 s live, 15 s–30 min vicino alla palla a due, 12 h oltre una settimana, 1 h se vuota) | ✓ `get-championships-calendar-by-id?id=&d=` (punteggio nella giornata).<br>**Cache:** 15 s; la home e il calendario rileggono ogni 30 s mentre c'è una partita live | ✓ `get-championships-matches-scores-by-id?id=`.<br>**Cache:** nessuna, a ogni refresh (30 s); non salvato nel database |
+| **Serie A2** | ✓ `GET /wp/match/<gameid>/ita2/x2627` (box score HTML) e scheda squadra HTML (roster).<br>**Cache:** box score mai più dopo 3 h dalla palla a due con almeno un giocatore; roster finché non compaiono giocatori nuovi | ✓ `lnpstat.domino.it/getstatisticsfiles?task=schedule&year=x2627&league=ita2&round=<n>`.<br>**Cache:** come LBA (`dayTtl`) | ~ stesso endpoint del calendario (`game_status` diverso da `finished`/`ready` = live).<br>**Cache:** 15 s | ~ `GET /wp/match/<gameid>/ita2/x2627` (pagina HTML, non verificata durante una partita).<br>**Cache:** nessuna; non salvato nel database |
+| **Serie B Nazionale** | ✓ come Serie A2, con `league=ita3_a` / `ita3_b` (un girone per competizione).<br>**Cache:** come Serie A2 | ✓ come Serie A2, con `league=ita3_a` / `ita3_b`.<br>**Cache:** come LBA (`dayTtl`) | ~ come Serie A2.<br>**Cache:** 15 s | ~ come Serie A2.<br>**Cache:** nessuna; non salvato nel database |
+| **EuroLeague** | ✓ `api-live.euroleague.net/v2/competitions/E/seasons/E2026/games/<gameCode>/stats` e `…/clubs/<codice>/people` (roster).<br>**Cache:** box score mai più dopo 3 h dalla palla a due con almeno un giocatore; roster finché non compaiono giocatori nuovi | ✓ `…/E/seasons/E2026/games?limit=500` (tutta la stagione in una risposta).<br>**Cache:** in memoria 10 s, condivisa tra giornate; nel database `dayTtl` | ✓ `live.euroleague.net/api/Header?gamecode=<n>&seasoncode=E2026` (`ScoreA`/`ScoreB`); se non risponde restano i dati v2 (0-0).<br>**Cache:** 15 s | ✓ `…/games/<gameCode>/stats`, e se vuoto `live.euroleague.net/api/Boxscore?gamecode=<n>&seasoncode=E2026`.<br>**Cache:** nessuna, a ogni refresh (30 s); non salvato nel database |
+| **EuroCup** | ✓ come EuroLeague, con coppa `U` (`…/U/seasons/U2026/…`).<br>**Cache:** come EuroLeague | ✓ come EuroLeague, con coppa `U`; un girone per competizione.<br>**Cache:** come EuroLeague | ✓ come EuroLeague, con `seasoncode=U2026` (verificato il 21/10/2026).<br>**Cache:** 15 s | ✓ come EuroLeague, con `seasoncode=U2026`.<br>**Cache:** nessuna; non salvato nel database |
+
+**Backup.** Se la chiamata indicata si guasta si passa a una fonte di riserva (`docs/api-backup.md`): per EuroLeague ed EuroCup
+l'API v1 di Euroleague (tutte e quattro le funzioni), per LBA e Serie A2 TheSportsDB (solo stato e punteggio delle partite già nel
+database: ✓ in *Calendario* e *Punteggi live*, nessuna copertura per box score e roster). La Serie B Nazionale non ha backup.
+Roster e box score di un backup non cancellano foto, altezza, peso e data di nascita già salvati.
+
 ## Cosa viene scaricato, e quando
 
 | Endpoint | Quando | Mai più dopo |
