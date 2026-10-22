@@ -87,3 +87,45 @@ export interface BoxScoreResponseDto {
   local: BoxScoreSideDto;
   road: BoxScoreSideDto;
 }
+
+/** Forma dei dati di `live.euroleague.net/api` (non documentata, ma è quella che alimenta il sito): i numeri sono spesso stringhe. */
+export interface LiveHeaderDto {
+  Live: boolean;
+  /** Squadra di casa (`local` nell'API v2). */
+  ScoreA: string;
+  ScoreB: string;
+}
+
+export interface LivePlayerDto {
+  /** "P014920   ": il codice persona è preceduto da "P" e riempito di spazi. */
+  Player_ID: string;
+  IsStarter: number;
+  Dorsal: string;
+  Player: string;
+  /** "24:22" */
+  Minutes: string;
+  Points: number;
+  FieldGoalsMade2: number;
+  FieldGoalsAttempted2: number;
+  FieldGoalsMade3: number;
+  FieldGoalsAttempted3: number;
+  FreeThrowsMade: number;
+  FreeThrowsAttempted: number;
+  OffensiveRebounds: number;
+  DefensiveRebounds: number;
+  TotalRebounds: number;
+  Assistances: number;
+  Steals: number;
+  Turnovers: number;
+  BlocksFavour: number;
+  BlocksAgainst: number;
+  FoulsCommited: number;
+  FoulsReceived: number;
+  Valuation: number;
+  Plusminus: number;
+}
+
+export interface LiveBoxScoreDto {
+  /** Squadra di casa, poi ospiti. */
+  Stats: { PlayersStats: LivePlayerDto[]; totr: Omit<LivePlayerDto, 'Player_ID' | 'IsStarter' | 'Dorsal' | 'Player'> }[];
+}

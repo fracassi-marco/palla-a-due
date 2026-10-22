@@ -4,6 +4,7 @@ import { useCases } from '../di/container';
 import { MatchCard } from '../presentation/components/MatchCard';
 import { Empty, ErrorView, Loading } from '../presentation/components/StateViews';
 import { useAsync } from '../presentation/hooks/useAsync';
+import { usePolling } from '../presentation/hooks/usePolling';
 import { useLeague } from '../presentation/hooks/useLeague';
 import { useDataVersion } from '../presentation/hooks/useSync';
 import { favoriteFirst } from '../domain/favoriteFirst';
@@ -12,6 +13,7 @@ import { useOpenMatch } from '../presentation/hooks/useOpenMatch';
 import { colors, fonts, radius } from '../presentation/theme';
 
 const CHIP_WIDTH = 64;
+const LIVE_SYNC_MS = 30_000;
 
 function DayMatches({ competitionIds, day }: { competitionIds: number[]; day: number }) {
   const openMatch = useOpenMatch();
@@ -22,6 +24,9 @@ function DayMatches({ competitionIds, day }: { competitionIds: number[]; day: nu
     [competitionIds.join(), day, dataVersion],
     `${league}:day:${competitionIds.join()}:${day}`,
   );
+
+  const hasLive = matches.data?.some((m) => m.status === 'live') ?? false;
+  usePolling(() => void useCases.sync.start({ minIntervalMs: LIVE_SYNC_MS / 2 }), hasLive, LIVE_SYNC_MS);
 
   const favoriteId = useFavoriteTeamId();
   const ordered = useMemo(() => favoriteFirst(matches.data ?? [], favoriteId), [matches.data, favoriteId]);

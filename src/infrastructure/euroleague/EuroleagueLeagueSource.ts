@@ -1,12 +1,17 @@
 import { Competition, Match, MatchBoxScore, Roster, TeamRef } from '../../domain/entities';
 import { LeagueSource } from '../../domain/ports';
 import { HttpClient, HttpError } from '../api/HttpClient';
-import { BoxScoreResponseDto, ClubDto, GameDto, GamesResponseDto, PersonRoleDto } from './dto';
+import { BoxScoreResponseDto, ClubDto, GameDto, GamesResponseDto, LiveBoxScoreDto, LiveHeaderDto, PersonRoleDto } from './dto';
 import { clubId, competitionId, decodeCompetitionId, decodeMatchId, seasonCode } from './ids';
-import { toBoxScoreSide, toCoach, toMatch, toPlayer, toTeamRef } from './mappers';
+import { toBoxScoreSide, toCoach, toLiveBoxScore, toMatch, toPlayer, toTeamRef } from './mappers';
 import { EuroleagueSeries } from './series';
 
 const API_URL = 'https://api-live.euroleague.net/v2/competitions';
+/**
+ * Feed del sito live (non documentato): l'API v2 tiene punteggio a 0 e box score vuoto finché la partita non è conclusa,
+ * questo invece si aggiorna durante la partita.
+ */
+const LIVE_URL = 'https://live.euroleague.net/api';
 
 /** Una stagione ha al più qualche centinaio di partite: una pagina basta. */
 const PAGE_SIZE = 500;
@@ -61,15 +66,47 @@ export class EuroleagueLeagueSource implements LeagueSource {
     const { seasonYear, groupOrder } = decodeCompetitionId(competition);
     const games = await this.regularSeasonGames(seasonYear);
     const now = Date.now();
-    return games
-      .filter((g) => g.group.order === groupOrder && g.round === dayNumber)
-      .map((g) => toMatch(g, competition, now));
+    const day = games.filter((g) => g.group.order === groupOrder && g.round === dayNumber);
+    return Promise.all(
+      day.map(async (g) => {
+        const match = toMatch(g, competition, now);
+        if (match.status !== 'live') return match;
+        const score = await this.liveScore(seasonYear, g.gameCode);
+        return score ? toMatch(g, competition, now, score) : match;
+      }),
+    );
   }
 
   async getBoxScore(id: number): Promise<MatchBoxScore> {
     const { seasonYear, gameCode } = decodeMatchId(id);
     const dto = await this.get<BoxScoreResponseDto>(`${this.seasonUrl(seasonYear)}/games/${gameCode}/stats`);
-    return { home: toBoxScoreSide(dto.local), away: toBoxScoreSide(dto.road) };
+    const box = { home: toBoxScoreSide(dto.local), away: toBoxScoreSide(dto.road) };
+    if (box.home.players.length + box.away.players.length > 0) return box;
+    return (await this.liveBoxScore(seasonYear, gameCode)) ?? box;
+  }
+
+  private liveParams(seasonYear: number, gameCode: number) {
+    return { gamecode: gameCode, seasoncode: seasonCode(this.series.code, seasonYear) };
+  }
+
+  /** Punteggio dal feed live; null se non disponibile (si resta con quello dell'API v2). */
+  private async liveScore(seasonYear: number, gameCode: number): Promise<{ home: number; away: number } | null> {
+    try {
+      const header = await this.http.get<LiveHeaderDto>(`${LIVE_URL}/Header`, this.liveParams(seasonYear, gameCode));
+      const home = Number(header.ScoreA);
+      const away = Number(header.ScoreB);
+      return Number.isFinite(home) && Number.isFinite(away) ? { home, away } : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async liveBoxScore(seasonYear: number, gameCode: number): Promise<MatchBoxScore | null> {
+    try {
+      return toLiveBoxScore(await this.http.get<LiveBoxScoreDto>(`${LIVE_URL}/Boxscore`, this.liveParams(seasonYear, gameCode)));
+    } catch {
+      return null;
+    }
   }
 
   async getRoster(teamId: number): Promise<Roster> {

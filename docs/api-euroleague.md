@@ -22,8 +22,11 @@ oppure hash fuori intervallo (`BEY`). EuroLeague ed EuroCup hanno ciascuna il pr
 
 ## Limiti noti
 
-- Stato `live` dedotto: l'API non ha uno stato "in corso", quindi una partita non ancora `played` e iniziata da meno di 3 ore è
-  considerata live. **Non verificato con una partita realmente in corso**: punteggio e box score live dipendono da come l'API li aggiorna.
+- Stato `live` dedotto: l'API v2 non ha uno stato "in corso", quindi una partita non ancora `played` e iniziata da meno di 3 ore è
+  considerata live. Durante la partita però v2 dà punteggio 0-0 e box score vuoto: per questo si usa il feed del sito live
+  (non documentato, verificato il 21/10/2026 con una partita di EuroCup in corso): `https://live.euroleague.net/api/Header?gamecode=<n>&seasoncode=U2026`
+  (`ScoreA`/`ScoreB`, A = casa, `Live`) e `.../api/Boxscore?...` (`Stats[0]` casa, `Stats[1]` ospiti; `Player_ID` = "P" + codice persona).
+  Se il feed non risponde si resta sui dati v2. Esiste anche `.../api/PlayByPlay`, non usato.
 - Solo la fase a gironi (`RS`): play-in, playoff, Final Four e fasi a eliminazione della EuroCup non sono gestiti.
 - Zone in classifica: solo la EuroLeague evidenzia i primi 6 (playoff diretti); il play-in (7°-10°) non è marcato. Per la EuroCup nessuna zona (regolamento non verificato). Nessuna retrocessione.
 - La classifica è calcolata dalle partite con l'ordinamento di `domain/standings.ts`, non con gli spareggi ufficiali della competizione.

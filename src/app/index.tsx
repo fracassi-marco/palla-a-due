@@ -18,8 +18,11 @@ import { favoriteFirst } from '../domain/favoriteFirst';
 import { useFavoriteTeamId } from '../presentation/hooks/useFavoriteTeam';
 import { useLeague } from '../presentation/hooks/useLeague';
 import { useAsync } from '../presentation/hooks/useAsync';
+import { usePolling } from '../presentation/hooks/usePolling';
 import { useDataVersion } from '../presentation/hooks/useSync';
 import { colors, fonts, radius } from '../presentation/theme';
+
+const LIVE_SYNC_MS = 30_000;
 
 const HOME_STATS = Object.keys(RANKING_STATS) as RankedStat[];
 
@@ -58,6 +61,10 @@ function Home() {
     matches.reload();
     void useCases.sync.start();
   };
+
+  // Con una partita live la lista si aggiorna da sola, così il risultato finale compare senza riaprire l'app.
+  const hasLive = matches.data?.some((m) => m.status === 'live') ?? false;
+  usePolling(() => void useCases.sync.start({ minIntervalMs: LIVE_SYNC_MS / 2 }), hasLive, LIVE_SYNC_MS);
 
   const openMatch = useOpenMatch();
   const favoriteId = useFavoriteTeamId();

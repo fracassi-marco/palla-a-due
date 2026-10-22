@@ -1,5 +1,5 @@
-import { BoxScorePlayer, BoxScoreSide, Coach, GameStats, Match, MatchStatus, Player, TeamRef } from '../../domain/entities';
-import { BoxScoreSideDto, ClubDto, GameDto, PersonRoleDto, PlayerStatsDto } from './dto';
+import { BoxScorePlayer, BoxScoreSide, Coach, GameStats, Match, MatchBoxScore, MatchStatus, Player, TeamRef } from '../../domain/entities';
+import { BoxScoreSideDto, ClubDto, GameDto, LiveBoxScoreDto, LivePlayerDto, PersonRoleDto, PlayerStatsDto } from './dto';
 import { clubId, matchId, personId } from './ids';
 
 const HOUR = 60 * 60 * 1000;
@@ -29,7 +29,7 @@ function toStatus(dto: GameDto, now: number, startsAt: number): MatchStatus {
   return now >= startsAt && now < startsAt + LIVE_WINDOW_MS ? 'live' : 'scheduled';
 }
 
-export function toMatch(dto: GameDto, competition: number, now: number): Match {
+export function toMatch(dto: GameDto, competition: number, now: number, liveScore?: { home: number; away: number }): Match {
   const startsAt = new Date(dto.utcDate);
   const status = toStatus(dto, now, startsAt.getTime());
   const started = status !== 'scheduled';
@@ -39,8 +39,8 @@ export function toMatch(dto: GameDto, competition: number, now: number): Match {
     startsAt,
     home: toTeamRef(dto.local.club),
     away: toTeamRef(dto.road.club),
-    homeScore: started ? dto.local.score : null,
-    awayScore: started ? dto.road.score : null,
+    homeScore: started ? (liveScore?.home ?? dto.local.score) : null,
+    awayScore: started ? (liveScore?.away ?? dto.road.score) : null,
     venue: dto.venue?.name ? titleCase(dto.venue.name) : null,
     city: null,
     dayNumber: dto.round,
@@ -133,4 +133,52 @@ export function toBoxScoreSide(dto: BoxScoreSideDto): BoxScoreSide {
     })),
     totals: dto.total ? toGameStats(dto.total) : EMPTY_STATS,
   };
+}
+
+/** "24:22" → 24 (minuti interi, come nelle altre fonti). */
+const liveMinutes = (clock: string) => Number.parseInt(clock, 10) || 0;
+
+function toLiveStats(dto: Omit<LivePlayerDto, 'Player_ID' | 'IsStarter' | 'Dorsal' | 'Player'>): GameStats {
+  return {
+    minutes: liveMinutes(dto.Minutes),
+    points: dto.Points,
+    fouls: dto.FoulsCommited,
+    foulsDrawn: dto.FoulsReceived,
+    twoMade: dto.FieldGoalsMade2,
+    twoAttempted: dto.FieldGoalsAttempted2,
+    threeMade: dto.FieldGoalsMade3,
+    threeAttempted: dto.FieldGoalsAttempted3,
+    freeThrowsMade: dto.FreeThrowsMade,
+    freeThrowsAttempted: dto.FreeThrowsAttempted,
+    offensiveRebounds: dto.OffensiveRebounds,
+    defensiveRebounds: dto.DefensiveRebounds,
+    totalRebounds: dto.TotalRebounds,
+    assists: dto.Assistances,
+    steals: dto.Steals,
+    turnovers: dto.Turnovers,
+    blocks: dto.BlocksFavour,
+    blocksAgainst: dto.BlocksAgainst,
+    rating: dto.Valuation,
+  };
+}
+
+/** Box score del feed live; nel feed i giocatori che non sono ancora scesi in campo hanno minuti "00:00". */
+export function toLiveBoxScore(dto: LiveBoxScoreDto): MatchBoxScore {
+  const side = (index: number): BoxScoreSide => {
+    const team = dto.Stats?.[index];
+    if (!team) return { players: [], totals: EMPTY_STATS };
+    return {
+      players: team.PlayersStats.map((p): BoxScorePlayer => ({
+        id: personId(p.Player_ID.replace(/^P/, '').trim()),
+        ...splitName(p.Player),
+        number: p.Dorsal || '-',
+        photoUrl: null,
+        starter: p.IsStarter === 1,
+        plusMinus: p.Plusminus,
+        stats: toLiveStats(p),
+      })),
+      totals: toLiveStats(team.totr),
+    };
+  };
+  return { home: side(0), away: side(1) };
 }
