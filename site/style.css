@@ -50,3 +50,14 @@ footer p{margin:4px 0}
 .trial button:disabled{opacity:.6}
 .trial .form-msg{min-height:1.5em;margin-top:14px;font-size:15px}
 html{scroll-behavior:smooth}
+.coverage{padding-bottom:64px}
+.table-scroll{overflow-x:auto;border-radius:16px;background:var(--card)}
+.coverage table{width:100%;border-collapse:collapse}
+.coverage th,.coverage td{padding:14px 16px;text-align:center;border-bottom:1px solid #1E2748}
+.coverage thead th{color:var(--muted);font-size:14px;font-weight:600}
+.coverage tbody th{text-align:left;font-weight:700}
+.coverage tr:last-child th,.coverage tr:last-child td{border-bottom:0}
+.coverage .yes{color:#34D399;font-weight:800}
+.coverage .part{color:var(--orange);font-weight:800}
+.coverage .note{color:var(--muted);font-size:14px;max-width:48em}
+@media(max-width:600px){.coverage th,.coverage td{padding:10px 4px}.coverage thead th{font-size:11px;line-height:1.2}.coverage tbody th{font-size:13px;padding-left:10px}}
