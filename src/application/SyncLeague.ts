@@ -9,8 +9,8 @@ const MINUTE = 60 * SECOND;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
-/** Chiamate di rete in parallelo durante la sincronizzazione. */
-const CONCURRENCY = 4;
+/** Chiamate di rete in parallelo durante la sincronizzazione (predefinito). */
+const DEFAULT_CONCURRENCY = 4;
 /** Una partita conclusa da meno di questo tempo (dalla palla a due) può ancora ricevere correzioni. */
 const SETTLE_MARGIN_MS = 3 * HOUR;
 /** Tra una sincronizzazione completa e la successiva (al ritorno in primo piano) deve passare almeno questo tempo. */
@@ -84,6 +84,7 @@ export class SyncLeague {
   constructor(
     private readonly source: LeagueSource,
     private readonly store: LeagueStore,
+    private readonly concurrency = DEFAULT_CONCURRENCY,
   ) {}
 
   getState = (): SyncState => this.state;
@@ -224,7 +225,7 @@ export class SyncLeague {
     }
 
     this.update({ phase: 'calendar', done: 0, total: stale.length });
-    return runPool(stale, CONCURRENCY, async ({ competitionId, day }) => {
+    return runPool(stale, this.concurrency, async ({ competitionId, day }) => {
       await this.fetchDay(competitionId, day);
       this.progress();
     });
@@ -234,7 +235,7 @@ export class SyncLeague {
     const now = Date.now();
     const pending = (await Promise.all(competitions.map((c) => this.store.getPendingBoxScores(c.id, now)))).flat();
     this.update({ phase: 'boxScores', done: 0, total: pending.length });
-    return runPool(pending, CONCURRENCY, async (info) => {
+    return runPool(pending, this.concurrency, async (info) => {
       await this.fetchBoxScore(info);
       this.progress();
     });
@@ -244,7 +245,7 @@ export class SyncLeague {
     const lists = await Promise.all(competitions.map((c) => this.store.getTeamsNeedingRoster(c.id)));
     const teamIds = [...new Set(lists.flat())];
     this.update({ phase: 'rosters', done: 0, total: teamIds.length });
-    return runPool(teamIds, CONCURRENCY, async (teamId) => {
+    return runPool(teamIds, this.concurrency, async (teamId) => {
       const roster = await withRetry(() => this.source.getRoster(teamId));
       await this.store.saveRoster(roster, Date.now());
       this.statsDirty = true;

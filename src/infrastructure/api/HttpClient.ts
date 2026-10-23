@@ -28,10 +28,12 @@ export class FetchHttpClient implements HttpClient {
   /**
    * I percorsi che iniziano con `http` sono URL assoluti e ignorano `baseUrl`.
    * `headers` si aggiungono a ogni richiesta (e prevalgono su `Accept`): alcune fonti rifiutano i client senza intestazioni da browser.
+   * Con `timeoutMs` una richiesta senza risposta viene interrotta (errore di rete, quindi un guasto per i fallback).
    */
   constructor(
     private readonly baseUrl = '',
     private readonly headers: Record<string, string> = {},
+    private readonly timeoutMs: number | null = null,
   ) {}
 
   async get<T>(path: string, params: Params = {}): Promise<T> {
@@ -49,12 +51,16 @@ export class FetchHttpClient implements HttpClient {
     const base = path.startsWith('http') ? '' : this.baseUrl;
     const url = `${base}${path}${query ? `?${query}` : ''}`;
     const startedAt = Date.now();
+    const abort = new AbortController();
+    const timer = this.timeoutMs === null ? null : setTimeout(() => abort.abort(), this.timeoutMs);
     let response: Response;
     try {
-      response = await fetch(url, { headers: { Accept: accept, ...this.headers } });
+      response = await fetch(url, { headers: { Accept: accept, ...this.headers }, signal: abort.signal });
     } catch (error) {
       logRequest(url, 'ERRORE DI RETE', startedAt);
       throw error;
+    } finally {
+      if (timer) clearTimeout(timer);
     }
     logRequest(url, response.status, startedAt, response.headers.get('retry-after'));
     if (!response.ok) {

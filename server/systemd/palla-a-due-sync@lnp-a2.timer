@@ -1,0 +1,10 @@
+[Unit]
+Description=Sincronizzazione giornaliera LNP Serie A2
+
+[Timer]
+OnCalendar=*-*-* 07:30:00 Europe/Rome
+RandomizedDelaySec=120
+Persistent=true
+
+[Install]
+WantedBy=timers.target

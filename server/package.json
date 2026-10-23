@@ -1,0 +1,28 @@
+{
+  "name": "palla-a-due-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cron che popolano i database SQLite dei campionati e API che li espone (riusano il codice della app)",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "esbuild src/sync.ts src/api.ts --bundle --platform=node --target=node24 --format=cjs --define:__DEV__=false --external:better-sqlite3 --outdir=dist",
+    "typecheck": "tsc --noEmit",
+    "sync": "npm run build && DATABASE_DIR=./data node dist/sync.js",
+    "api": "npm run build && DATABASE_DIR=./data node dist/api.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.0.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^24.0.0",
+    "esbuild": "^0.25.0",
+    "typescript": "~6.0.3"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true,
+    "esbuild@0.25.12": true
+  }
+}

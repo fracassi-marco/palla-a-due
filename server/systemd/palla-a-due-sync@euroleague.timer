@@ -1,0 +1,10 @@
+[Unit]
+Description=Sincronizzazione giornaliera EuroLeague ed EuroCup
+
+[Timer]
+OnCalendar=*-*-* 08:15:00 Europe/Rome
+RandomizedDelaySec=120
+Persistent=true
+
+[Install]
+WantedBy=timers.target

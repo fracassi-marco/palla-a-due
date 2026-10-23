@@ -1,0 +1,972 @@
+openapi: 3.0.3
+info:
+  title: Palla a due — API esterne chiamate dall'app
+  version: 2026.10.22
+  description: |
+    Tutte le richieste HTTP (solo GET, senza autenticazione) che l'app fa verso servizi di terzi. Non è un'API dell'app:
+    descrive le fonti da cui legge i dati, ricavate da `src/infrastructure/`. Ogni percorso dichiara il proprio `servers`
+    perché le fonti sono domini diversi. Gli schemi elencano solo i campi che l'app legge.
+
+    Fonti principali e di backup per campionato (`docs/api-backup.md`):
+
+    | Campionato | Principale | Backup |
+    |---|---|---|
+    | LBA | `legabasket.it/api` | TheSportsDB |
+    | Serie A2 | `lnpstat.domino.it` + HTML LNP | TheSportsDB |
+    | Serie B Nazionale | `lnpstat.domino.it` + HTML LNP | – |
+    | EuroLeague / EuroCup | Euroleague v2 (+ feed live) | Euroleague v1 (XML) |
+    | NBA | `cdn.nba.com` | ESPN |
+
+    Le richieste passano da `FetchHttpClient` (`Accept: application/json` per le API JSON, `text/html` per HTML e XML).
+    In caso di guasto (rete, 5xx, 408, 429, formato inatteso) `FallbackLeagueSource` passa al backup.
+    Stagione: `{anno}` è l'anno di inizio (2026 per il 2026/27).
+tags:
+  - name: LBA
+    description: Lega Basket Serie A — `https://www.legabasket.it/api`
+  - name: LNP
+    description: Serie A2 e Serie B Nazionale (Lega Nazionale Pallacanestro)
+  - name: Euroleague v2
+    description: EuroLeague (`E`) ed EuroCup (`U`), API ufficiale JSON
+  - name: Euroleague live
+    description: Feed del sito live.euroleague.net (non documentato) per punteggio e box score in corso
+  - name: Euroleague v1
+    description: Backup XML di EuroLeague ed EuroCup
+  - name: NBA
+    description: File JSON statici del CDN NBA (richiedono intestazioni da browser)
+  - name: ESPN
+    description: Backup per la NBA (calendario, stato e punteggi)
+  - name: TheSportsDB
+    description: Backup per LBA e Serie A2
+  - name: Immagini
+    description: Loghi e foto scaricati da URL remoti (quelli non inclusi nell'app)
+
+paths:
+  # ---------------------------------------------------------------- LBA
+  /championships/get-championships:
+    get:
+      tags: [LBA]
+      summary: Competizioni della stagione
+      description: L'app cerca la Regular Season della Serie A (`ctype_code = RS` e `cserie_code = A1`).
+      servers: [{ url: 'https://www.legabasket.it/api' }]
+      parameters:
+        - { name: s, in: query, required: true, description: Anno di inizio stagione, schema: { type: integer, example: 2026 } }
+      responses:
+        '200':
+          description: Elenco delle competizioni
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LbaCompetitions' }
+  /championships/get-championships-calendar-by-id:
+    get:
+      tags: [LBA]
+      summary: Partite di una giornata
+      servers: [{ url: 'https://www.legabasket.it/api' }]
+      parameters:
+        - { name: id, in: query, required: true, description: Id della competizione, schema: { type: integer } }
+        - { name: d, in: query, required: true, description: Numero di giornata, schema: { type: integer } }
+      responses:
+        '200':
+          description: Partite della giornata (`matches` è null se vuota)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LbaCalendar' }
+  /championships/get-championships-matches-scores-by-id:
+    get:
+      tags: [LBA]
+      summary: Box score di una partita
+      servers: [{ url: 'https://www.legabasket.it/api' }]
+      parameters:
+        - { name: id, in: query, required: true, description: Id della partita, schema: { type: integer } }
+      responses:
+        '200':
+          description: Tabellino di casa (`ht`) e ospiti (`vt`); aggiornato durante la partita
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LbaBoxScore' }
+  /teams/get-team-roster:
+    get:
+      tags: [LBA]
+      summary: Roster e allenatore di una squadra
+      servers: [{ url: 'https://www.legabasket.it/api' }]
+      parameters:
+        - { name: id, in: query, required: true, description: Id della squadra, schema: { type: integer } }
+      responses:
+        '200':
+          description: Squadra, allenatore e giocatori
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LbaRoster' }
+
+  # ---------------------------------------------------------------- LNP
+  /getstatisticsfiles:
+    get:
+      tags: [LNP]
+      summary: Calendario di una giornata (Serie A2 e B)
+      description: |
+        Endpoint JSON dietro le tabelle di legapallacanestro.com. Una giornata inesistente risponde con un oggetto
+        `{ "error": … }` o con 404 (l'app la tratta come vuota). `game_status`: `finished`, `ready`; altri valori sono
+        considerati live (non osservati). Data e ora sono italiane.
+      servers: [{ url: 'https://lnpstat.domino.it' }]
+      parameters:
+        - { name: task, in: query, required: true, schema: { type: string, enum: [schedule] } }
+        - { name: year, in: query, required: true, description: 'Stagione LNP: `x` + anni a 2 cifre', schema: { type: string, example: x2627 } }
+        - { name: league, in: query, required: true, description: Campionato (Serie B ha un girone per competizione), schema: { type: string, enum: [ita2, ita3_a, ita3_b] } }
+        - { name: round, in: query, required: true, description: Numero di giornata, schema: { type: integer } }
+      responses:
+        '200':
+          description: Lista di partite, oppure oggetto di errore
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items: { $ref: '#/components/schemas/LnpGame' }
+                  - type: object
+                    properties: { error: {} }
+        '404': { description: Giornata inesistente }
+  /wp/match/{gameId}/{league}/{season}:
+    get:
+      tags: [LNP]
+      summary: Box score di una partita (pagina HTML)
+      description: |
+        HTML con due blocchi `table-left` (casa) e `table-right` (ospiti), letto da `lnp/parsers.ts`. Non esiste prima che la
+        partita abbia dati (404: l'app restituisce un box score vuoto). Niente +/-. Durante una partita non verificato.
+      servers: [{ url: 'https://www.legapallacanestro.com' }]
+      parameters:
+        - { name: gameId, in: path, required: true, description: 'Es. `ita2_403`', schema: { type: string } }
+        - { name: league, in: path, required: true, schema: { type: string, enum: [ita2, ita3_a, ita3_b] } }
+        - { name: season, in: path, required: true, schema: { type: string, example: x2627 } }
+      responses:
+        '200': { description: Pagina HTML del tabellino, content: { text/html: { schema: { type: string } } } }
+        '404': { description: Partita senza dati }
+  /serie/{serie}/squadre:
+    get:
+      tags: [LNP]
+      summary: Elenco squadre (pagina HTML)
+      description: Dà il percorso della scheda di ogni squadra e l'estensione del logo (`.png` o `.jpg`, cambia per squadra).
+      servers: [{ url: 'https://www.legapallacanestro.com' }]
+      parameters:
+        - { name: serie, in: path, required: true, description: '`1` = Serie A2, `4` = Serie B', schema: { type: integer, enum: [1, 4] } }
+      responses:
+        '200': { description: Pagina HTML, content: { text/html: { schema: { type: string } } } }
+  /{teamPath}:
+    get:
+      tags: [LNP]
+      summary: Scheda squadra con roster e allenatore (pagina HTML)
+      description: |
+        Il percorso viene dall'elenco squadre (es. `/serie-a2/ueb-gesteco-cividale`). Gli id dei giocatori si leggono dai
+        link `/giocatore/wp/<id>` della stessa pagina.
+      servers: [{ url: 'https://www.legapallacanestro.com' }]
+      parameters:
+        - { name: teamPath, in: path, required: true, allowReserved: true, schema: { type: string, example: serie-a2/ueb-gesteco-cividale } }
+      responses:
+        '200': { description: Pagina HTML, content: { text/html: { schema: { type: string } } } }
+
+  # ---------------------------------------------------------------- Euroleague v2
+  /{series}/seasons/{seasonCode}/games:
+    get:
+      tags: [Euroleague v2]
+      summary: Calendario e risultati di tutta la stagione
+      description: |
+        Una sola pagina con tutta la stagione (`limit=500`). L'app tiene solo `phaseType.code = RS` (fase a gironi) e usa
+        `group.order` come girone. Dà punteggio 0-0 durante la partita: per il live vedi il feed `live.euroleague.net`.
+        Le richieste sono serializzate (almeno 500 ms l'una); su 429 si rispetta `Retry-After` fino a 15 s, poi si fallisce.
+      servers: [{ url: 'https://api-live.euroleague.net/v2/competitions' }]
+      parameters:
+        - { $ref: '#/components/parameters/Series' }
+        - { $ref: '#/components/parameters/SeasonCode' }
+        - { name: limit, in: query, schema: { type: integer, default: 500 } }
+      responses:
+        '200':
+          description: Partite
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ElGames' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /{series}/seasons/{seasonCode}/games/{gameCode}/stats:
+    get:
+      tags: [Euroleague v2]
+      summary: Box score di una partita
+      description: Prima della palla a due `players` è vuoto e `total` nullo; in quel caso l'app ripiega sul feed live.
+      servers: [{ url: 'https://api-live.euroleague.net/v2/competitions' }]
+      parameters:
+        - { $ref: '#/components/parameters/Series' }
+        - { $ref: '#/components/parameters/SeasonCode' }
+        - { name: gameCode, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Lato di casa (`local`) e ospiti (`road`)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ElBoxScore' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /{series}/seasons/{seasonCode}/clubs:
+    get:
+      tags: [Euroleague v2]
+      summary: Club della stagione
+      description: Serve a risalire dall'id numerico della squadra al codice club.
+      servers: [{ url: 'https://api-live.euroleague.net/v2/competitions' }]
+      parameters:
+        - { $ref: '#/components/parameters/Series' }
+        - { $ref: '#/components/parameters/SeasonCode' }
+        - { name: limit, in: query, schema: { type: integer, default: 500 } }
+      responses:
+        '200':
+          description: Club
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/ElClub' } }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /{series}/seasons/{seasonCode}/clubs/{clubCode}/people:
+    get:
+      tags: [Euroleague v2]
+      summary: Roster e allenatore di un club
+      description: '`type`: `J` giocatore, `E` allenatore (gli assistenti `A` sono ignorati). L''app tiene solo `active = true`.'
+      servers: [{ url: 'https://api-live.euroleague.net/v2/competitions' }]
+      parameters:
+        - { $ref: '#/components/parameters/Series' }
+        - { $ref: '#/components/parameters/SeasonCode' }
+        - { name: clubCode, in: path, required: true, schema: { type: string, example: BAR } }
+      responses:
+        '200':
+          description: Persone del club
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ElPerson' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  # ---------------------------------------------------------------- Euroleague live
+  /Header:
+    get:
+      tags: [Euroleague live]
+      summary: Punteggio in corso
+      description: Usato solo per le partite considerate live. Se non risponde l'app resta sui dati v2.
+      servers: [{ url: 'https://live.euroleague.net/api' }]
+      parameters:
+        - { $ref: '#/components/parameters/LiveGameCode' }
+        - { $ref: '#/components/parameters/LiveSeasonCode' }
+      responses:
+        '200':
+          description: Intestazione della partita (i numeri arrivano come stringhe; A = casa)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ElLiveHeader' }
+  /Boxscore:
+    get:
+      tags: [Euroleague live]
+      summary: Box score in corso
+      description: Usato quando il box score v2 è vuoto. `Stats[0]` = casa, `Stats[1]` = ospiti; `Player_ID` = "P" + codice persona.
+      servers: [{ url: 'https://live.euroleague.net/api' }]
+      parameters:
+        - { $ref: '#/components/parameters/LiveGameCode' }
+        - { $ref: '#/components/parameters/LiveSeasonCode' }
+      responses:
+        '200':
+          description: Statistiche per giocatore e totali
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ElLiveBoxScore' }
+
+  # ---------------------------------------------------------------- Euroleague v1
+  /schedules:
+    get:
+      tags: [Euroleague v1]
+      summary: Calendario (XML)
+      description: |
+        `round` = fase (`RS`), `gameday` = giornata, `group` = `Regular Season` o lettera del girone, `date` + `startime`
+        in ora dell'Europa centrale, `played`. Letto con espressioni regolari (`euroleague/xml.ts`).
+      servers: [{ url: 'https://api-live.euroleague.net/v1' }]
+      parameters:
+        - { $ref: '#/components/parameters/V1SeasonCode' }
+      responses:
+        '200': { $ref: '#/components/responses/Xml' }
+  /results:
+    get:
+      tags: [Euroleague v1]
+      summary: Punteggi delle partite giocate (XML)
+      description: '`homescore` / `awayscore`; solo partite con `played = true`.'
+      servers: [{ url: 'https://api-live.euroleague.net/v1' }]
+      parameters:
+        - { $ref: '#/components/parameters/V1SeasonCode' }
+      responses:
+        '200': { $ref: '#/components/responses/Xml' }
+  /games:
+    get:
+      tags: [Euroleague v1]
+      summary: Box score di una partita (XML)
+      description: '`localclub` / `roadclub` con una `<stat>` per giocatore (la riga `Team`, codice 0, è scartata) e `<totals>`.'
+      servers: [{ url: 'https://api-live.euroleague.net/v1' }]
+      parameters:
+        - { $ref: '#/components/parameters/V1SeasonCode' }
+        - { name: gameCode, in: query, required: true, schema: { type: integer } }
+      responses:
+        '200': { $ref: '#/components/responses/Xml' }
+  /teams:
+    get:
+      tags: [Euroleague v1]
+      summary: Club, roster e allenatore (XML)
+      description: Un solo documento con tutti i club (nome, codice TV, allenatore, `members` con `profile` `J` e `active`).
+      servers: [{ url: 'https://api-live.euroleague.net/v1' }]
+      parameters:
+        - { $ref: '#/components/parameters/V1SeasonCode' }
+      responses:
+        '200': { $ref: '#/components/responses/Xml' }
+
+  # ---------------------------------------------------------------- NBA
+  /staticData/scheduleLeagueV2.json:
+    get:
+      tags: [NBA]
+      summary: Calendario di tutta la stagione
+      description: |
+        7 MB (400 KB compressi), una sola stagione per file. In cache 2 minuti. `gameId` che inizia per `002` = Regular
+        Season. Fuori stagione contiene ancora quella precedente: l'app rifiuta e risponde il backup.
+      servers: [{ url: 'https://cdn.nba.com/static/json' }]
+      security: [{ browserHeaders: [] }]
+      responses:
+        '200':
+          description: Calendario
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NbaSchedule' }
+        '403': { $ref: '#/components/responses/Akamai403' }
+  /liveData/scoreboard/todaysScoreboard_00.json:
+    get:
+      tags: [NBA]
+      summary: Tabellone del giorno
+      description: 35 KB, solo partite di oggi, aggiornato in diretta. Serve per stato e punteggio live. In cache 10 s. Formato non verificato con una partita in corso.
+      servers: [{ url: 'https://cdn.nba.com/static/json' }]
+      security: [{ browserHeaders: [] }]
+      responses:
+        '200':
+          description: Partite di oggi
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NbaScoreboard' }
+        '403': { $ref: '#/components/responses/Akamai403' }
+  /liveData/boxscore/boxscore_{gameId}.json:
+    get:
+      tags: [NBA]
+      summary: Box score di una partita
+      description: Disponibile da quando la partita inizia (prima il CDN risponde 403 XML di S3). Minuti in durata ISO (`PT33M15.00S`).
+      servers: [{ url: 'https://cdn.nba.com/static/json' }]
+      security: [{ browserHeaders: [] }]
+      parameters:
+        - { name: gameId, in: path, required: true, description: 'Id NBA, es. `0022600012`', schema: { type: string } }
+      responses:
+        '200':
+          description: Box score
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NbaBoxScore' }
+        '403': { $ref: '#/components/responses/Akamai403' }
+  /staticData/playerIndex.json:
+    get:
+      tags: [NBA]
+      summary: Anagrafica di tutti i giocatori (roster)
+      description: 280 KB, si filtra per `TEAM_ID`. In cache 1 ora. Niente allenatore né data di nascita.
+      servers: [{ url: 'https://cdn.nba.com/static/json' }]
+      security: [{ browserHeaders: [] }]
+      responses:
+        '200':
+          description: Una riga per giocatore, colonne in `headers`
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NbaPlayerIndex' }
+        '403': { $ref: '#/components/responses/Akamai403' }
+
+  # ---------------------------------------------------------------- ESPN
+  /apis/site/v2/sports/basketball/nba/scoreboard:
+    get:
+      tags: [ESPN]
+      summary: Partite NBA di un giorno
+      description: |
+        Backup della NBA. Una richiesta per giorno (sette per giornata, in parallelo): `dates=a-b` e `limit` rispondono 400.
+        Si scartano `season.type` ≠ 2, squadre `TBD` e i turni a eliminazione della NBA Cup.
+      servers: [{ url: 'https://site.api.espn.com' }]
+      parameters:
+        - { name: dates, in: query, required: true, description: 'Giorno AAAAMMGG (ora della costa Est)', schema: { type: string, example: '20261020' } }
+      responses:
+        '200':
+          description: Eventi del giorno
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EspnScoreboard' }
+
+  # ---------------------------------------------------------------- TheSportsDB
+  /eventsround.php:
+    get:
+      tags: [TheSportsDB]
+      summary: Partite di una giornata
+      description: |
+        Backup di LBA (lega 4433) e Serie A2 (lega 5377). Abbina gli eventi alle partite già nel database per nome squadra
+        e ne aggiorna stato e punteggio. Chiave pubblica `123` (nel percorso del server), limite di richieste basso (429):
+        una richiesta alla volta a 1,5 s, giornata in cache 60 s.
+      servers: [{ url: 'https://www.thesportsdb.com/api/v1/json/123' }]
+      parameters:
+        - { name: id, in: query, required: true, description: Id della lega, schema: { type: integer, enum: [4433, 5377] } }
+        - { name: r, in: query, required: true, description: Numero di giornata, schema: { type: integer } }
+        - { name: s, in: query, required: true, description: 'Stagione `AAAA-AAAA`', schema: { type: string, example: 2026-2027 } }
+      responses:
+        '200':
+          description: Eventi (`events` è null se vuota)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TsdbRound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  # ---------------------------------------------------------------- Immagini
+  /headshots/nba/latest/260x190/{personId}.png:
+    get:
+      tags: [Immagini]
+      summary: Foto di un giocatore NBA
+      description: Quasi tutte sono già nell'app (`assets/images/players/nba/`); si scarica solo quella dei giocatori firmati dopo l'ultimo `download-images`.
+      servers: [{ url: 'https://cdn.nba.com' }]
+      parameters:
+        - { name: personId, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200': { description: PNG, content: { image/png: { schema: { type: string, format: binary } } } }
+  /i/teamlogos/nba/500/{code}.png:
+    get:
+      tags: [Immagini]
+      summary: Logo di una squadra NBA
+      servers: [{ url: 'https://a.espncdn.com' }]
+      parameters:
+        - { name: code, in: path, required: true, description: 'Sigla ESPN in minuscolo (`gs`, `no`, `ny`, `sa`, `utah`, `wsh`…)', schema: { type: string, example: bos } }
+      responses:
+        '200': { description: PNG, content: { image/png: { schema: { type: string, format: binary } } } }
+  /{key}:
+    get:
+      tags: [Immagini]
+      summary: Logo o foto LBA
+      description: '`key` è `logo_key`, `player_picture_key`, `coach_picture_key` o `player_p_key` restituiti dalle API LBA.'
+      servers: [{ url: 'https://lba-media.s3.eu-south-1.amazonaws.com' }]
+      parameters:
+        - { name: key, in: path, required: true, allowReserved: true, schema: { type: string } }
+      responses:
+        '200': { description: Immagine, content: { image/*: { schema: { type: string, format: binary } } } }
+  /sites/default/files/styles/255_x/public/team_logo/{teamId}.{ext}:
+    get:
+      tags: [Immagini]
+      summary: Logo di una squadra LNP
+      servers: [{ url: 'https://www.legapallacanestro.com' }]
+      parameters:
+        - { name: teamId, in: path, required: true, schema: { type: integer } }
+        - { name: ext, in: path, required: true, description: Cambia per squadra (dall'elenco squadre), schema: { type: string, enum: [png, jpg] } }
+      responses:
+        '200': { description: Immagine, content: { image/*: { schema: { type: string, format: binary } } } }
+  /team/images/player/{season}/{playerId}.jpg:
+    get:
+      tags: [Immagini]
+      summary: Foto di un giocatore LNP
+      servers: [{ url: 'https://lnp.webpont.com' }]
+      parameters:
+        - { name: season, in: path, required: true, schema: { type: string, example: x2627 } }
+        - { name: playerId, in: path, required: true, schema: { type: string, example: A59109 } }
+      responses:
+        '200': { description: JPEG, content: { image/jpeg: { schema: { type: string, format: binary } } } }
+
+components:
+  securitySchemes:
+    browserHeaders:
+      type: apiKey
+      in: header
+      name: User-Agent
+      description: |
+        Nessuna chiave, ma il CDN NBA (Akamai) risponde 403 ai client che non sembrano un browser. Servono insieme:
+        `User-Agent` di Chrome, `Accept-Language: en-US,en;q=0.9`, `Accept-Encoding: gzip, deflate, br`,
+        `Referer: https://www.nba.com/`, `sec-fetch-mode: cors`, `sec-fetch-site: same-site`, `sec-ch-ua: "Chromium";v="126"`
+        (`NBA_HEADERS` in `NbaLeagueSource.ts`). Verificato con curl, non da un dispositivo.
+
+  parameters:
+    Series:
+      name: series
+      in: path
+      required: true
+      description: '`E` = EuroLeague, `U` = EuroCup'
+      schema: { type: string, enum: [E, U] }
+    SeasonCode:
+      name: seasonCode
+      in: path
+      required: true
+      description: Coppa + anno di inizio (`E2026`, `U2026`)
+      schema: { type: string, example: E2026 }
+    LiveGameCode:
+      name: gamecode
+      in: query
+      required: true
+      schema: { type: integer }
+    LiveSeasonCode:
+      name: seasoncode
+      in: query
+      required: true
+      schema: { type: string, example: U2026 }
+    V1SeasonCode:
+      name: seasonCode
+      in: query
+      required: true
+      schema: { type: string, example: E2026 }
+
+  responses:
+    TooManyRequests:
+      description: Limite di richieste. L'app legge `Retry-After` (secondi) e riprova fino a 3 volte, poi passa al backup.
+      headers:
+        Retry-After: { schema: { type: integer } }
+    Akamai403:
+      description: Intestazioni da browser mancanti o rifiutate (HTML "Access Denied"); per `boxscore_*` anche partita non ancora iniziata (XML S3). L'app passa al backup.
+    Xml:
+      description: Documento XML
+      content:
+        application/xml: { schema: { type: string } }
+
+  schemas:
+    # ---- LBA
+    LbaCompetitions:
+      type: object
+      properties:
+        competitions:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              year: { type: integer }
+              name: { type: string }
+              status: { type: integer }
+              ctype_code: { type: string, example: RS }
+              cserie_code: { type: string, example: A1 }
+              focus_on: { type: boolean }
+    LbaMatch:
+      type: object
+      properties:
+        id: { type: integer }
+        game_status: { type: string, description: '`0` da giocare, `1` live, `2` conclusa' }
+        match_datetime: { type: string }
+        home_final_score: { type: integer, nullable: true }
+        visitor_final_score: { type: integer, nullable: true }
+        has_streaming: { type: integer }
+        h_team_id: { type: integer }
+        h_team_name: { type: string }
+        h_club_code: { type: string }
+        home_logo_key: { type: string, nullable: true }
+        v_team_id: { type: integer }
+        v_team_name: { type: string }
+        v_club_code: { type: string }
+        v_logo_key: { type: string, nullable: true }
+        plant_name: { type: string, nullable: true }
+        town_name: { type: string, nullable: true }
+        day_serial: { type: integer }
+        day_name: { type: string }
+    LbaCalendar:
+      type: object
+      properties:
+        matches: { type: array, nullable: true, items: { $ref: '#/components/schemas/LbaMatch' } }
+        cdn_url: { type: string }
+    LbaStats:
+      type: object
+      description: Stessi campi per un giocatore e per i totali di squadra (tutti nullable).
+      properties:
+        min: { type: integer, nullable: true }
+        pun: { type: integer, nullable: true }
+        falli_c: { type: integer, nullable: true }
+        falli_sf: { type: integer, nullable: true }
+        t2_r: { type: integer, nullable: true }
+        t2_t: { type: integer, nullable: true }
+        t3_r: { type: integer, nullable: true }
+        t3_t: { type: integer, nullable: true }
+        tl_r: { type: integer, nullable: true }
+        tl_t: { type: integer, nullable: true }
+        rimbalzi_o: { type: integer, nullable: true }
+        rimbalzi_d: { type: integer, nullable: true }
+        rimbalzi_t: { type: integer, nullable: true }
+        stoppate_dat: { type: integer, nullable: true }
+        stoppate_sub: { type: integer, nullable: true }
+        palle_p: { type: integer, nullable: true }
+        palle_r: { type: integer, nullable: true }
+        ass: { type: integer, nullable: true }
+        val_lega: { type: integer, nullable: true }
+    LbaBoxScoreRow:
+      allOf:
+        - $ref: '#/components/schemas/LbaStats'
+        - type: object
+          properties:
+            player_id: { type: integer }
+            player_num: { oneOf: [{ type: integer }, { type: string }], nullable: true }
+            player_name: { type: string }
+            player_surname: { type: string }
+            player_p_key: { type: string, nullable: true }
+            sf: { description: '"1" se in quintetto base', oneOf: [{ type: string }, { type: integer }], nullable: true }
+            plus_minus: { type: integer, nullable: true }
+    LbaBoxScoreSide:
+      type: object
+      nullable: true
+      properties:
+        rows: { type: array, nullable: true, items: { $ref: '#/components/schemas/LbaBoxScoreRow' } }
+        totals: { allOf: [{ $ref: '#/components/schemas/LbaStats' }], nullable: true }
+    LbaBoxScore:
+      type: object
+      properties:
+        scores:
+          type: object
+          nullable: true
+          properties:
+            ht: { $ref: '#/components/schemas/LbaBoxScoreSide' }
+            vt: { $ref: '#/components/schemas/LbaBoxScoreSide' }
+    LbaRoster:
+      type: object
+      properties:
+        team:
+          type: object
+          properties:
+            id: { type: integer }
+            name: { type: string }
+            club_code: { type: string }
+            logo_key: { type: string, nullable: true }
+        coach:
+          type: object
+          nullable: true
+          properties:
+            id: { type: integer }
+            name: { type: string }
+            surname: { type: string }
+            coach_picture_key: { type: string, nullable: true }
+        players:
+          type: array
+          nullable: true
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              name: { type: string }
+              surname: { type: string }
+              player_number: { type: string, nullable: true }
+              country: { type: string, nullable: true }
+              birth_date: { type: string, nullable: true }
+              place_of_birth: { type: string, nullable: true }
+              height: { type: integer, nullable: true }
+              weight: { type: integer, nullable: true }
+              player_role: { type: string, nullable: true }
+              team_name: { type: string }
+              player_picture_key: { type: string, nullable: true }
+        cdn_url: { type: string }
+
+    # ---- LNP (i numeri arrivano come stringhe)
+    LnpGame:
+      type: object
+      properties:
+        gameid: { type: string, example: ita2_403 }
+        teamid_home: { type: string }
+        teamname_home: { type: string }
+        score_home: { type: string, nullable: true }
+        teamid_away: { type: string }
+        teamname_away: { type: string }
+        score_away: { type: string, nullable: true }
+        round: { type: string }
+        date: { type: string, nullable: true, description: 'gg/mm/aaaa, ora italiana' }
+        time: { type: string, nullable: true, description: 'hh:mm, ora italiana' }
+        arena: { type: string, nullable: true }
+        stream_url: { type: string, nullable: true }
+        game_status: { type: string, description: '`finished`, `ready`; altro = live' }
+
+    # ---- Euroleague v2
+    ElClub:
+      type: object
+      properties:
+        code: { type: string, example: BAR }
+        name: { type: string }
+        abbreviatedName: { type: string }
+        tvCode: { type: string }
+        images:
+          type: object
+          properties: { crest: { type: string, nullable: true } }
+    ElGame:
+      type: object
+      properties:
+        gameCode: { type: integer }
+        phaseType: { type: object, properties: { code: { type: string, example: RS } } }
+        group: { type: object, properties: { order: { type: integer }, rawName: { type: string } } }
+        round: { type: integer }
+        played: { type: boolean }
+        utcDate: { type: string, format: date-time }
+        local: { $ref: '#/components/schemas/ElGameSide' }
+        road: { $ref: '#/components/schemas/ElGameSide' }
+        venue: { type: object, nullable: true, properties: { name: { type: string } } }
+    ElGameSide:
+      type: object
+      properties:
+        club: { $ref: '#/components/schemas/ElClub' }
+        score: { type: integer }
+    ElGames:
+      type: object
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/ElGame' } }
+    ElPerson:
+      type: object
+      properties:
+        person:
+          type: object
+          properties:
+            code: { type: string, example: '006590' }
+            name: { type: string, description: 'COGNOME, NOME' }
+            country: { type: object, nullable: true, properties: { name: { type: string } } }
+            height: { type: number }
+            weight: { type: number }
+            birthDate: { type: string, nullable: true }
+        type: { type: string, description: '`J` giocatore, `E` allenatore, `A` assistente' }
+        active: { type: boolean }
+        dorsal: { type: string, nullable: true }
+        positionName: { type: string, nullable: true }
+        images:
+          type: object
+          properties: { headshot: { type: string, nullable: true } }
+    ElPlayerStats:
+      type: object
+      properties:
+        timePlayed: { type: number, description: Secondi }
+        valuation: { type: number }
+        points: { type: integer }
+        fieldGoalsMade2: { type: integer }
+        fieldGoalsAttempted2: { type: integer }
+        fieldGoalsMade3: { type: integer }
+        fieldGoalsAttempted3: { type: integer }
+        freeThrowsMade: { type: integer }
+        freeThrowsAttempted: { type: integer }
+        totalRebounds: { type: integer }
+        defensiveRebounds: { type: integer }
+        offensiveRebounds: { type: integer }
+        assistances: { type: integer }
+        steals: { type: integer }
+        turnovers: { type: integer }
+        blocksFavour: { type: integer }
+        blocksAgainst: { type: integer }
+        foulsCommited: { type: integer }
+        foulsReceived: { type: integer }
+        plusMinus: { type: integer }
+        dorsal: { type: integer }
+        startFive: { type: boolean }
+    ElBoxScoreSide:
+      type: object
+      properties:
+        players:
+          type: array
+          items:
+            type: object
+            properties:
+              player: { $ref: '#/components/schemas/ElPerson' }
+              stats: { $ref: '#/components/schemas/ElPlayerStats' }
+        total: { allOf: [{ $ref: '#/components/schemas/ElPlayerStats' }], nullable: true }
+    ElBoxScore:
+      type: object
+      properties:
+        local: { $ref: '#/components/schemas/ElBoxScoreSide' }
+        road: { $ref: '#/components/schemas/ElBoxScoreSide' }
+
+    # ---- Euroleague live
+    ElLiveHeader:
+      type: object
+      properties:
+        Live: { type: boolean }
+        ScoreA: { type: string, description: Casa }
+        ScoreB: { type: string, description: Ospiti }
+    ElLivePlayer:
+      type: object
+      properties:
+        Player_ID: { type: string, example: 'P014920   ', description: '"P" + codice persona, riempito di spazi' }
+        IsStarter: { type: integer }
+        Dorsal: { type: string }
+        Player: { type: string }
+        Minutes: { type: string, example: '24:22' }
+        Points: { type: integer }
+        FieldGoalsMade2: { type: integer }
+        FieldGoalsAttempted2: { type: integer }
+        FieldGoalsMade3: { type: integer }
+        FieldGoalsAttempted3: { type: integer }
+        FreeThrowsMade: { type: integer }
+        FreeThrowsAttempted: { type: integer }
+        OffensiveRebounds: { type: integer }
+        DefensiveRebounds: { type: integer }
+        TotalRebounds: { type: integer }
+        Assistances: { type: integer }
+        Steals: { type: integer }
+        Turnovers: { type: integer }
+        BlocksFavour: { type: integer }
+        BlocksAgainst: { type: integer }
+        FoulsCommited: { type: integer }
+        FoulsReceived: { type: integer }
+        Valuation: { type: integer }
+        Plusminus: { type: integer }
+    ElLiveBoxScore:
+      type: object
+      properties:
+        Stats:
+          type: array
+          description: Casa, poi ospiti
+          items:
+            type: object
+            properties:
+              PlayersStats: { type: array, items: { $ref: '#/components/schemas/ElLivePlayer' } }
+              totr: { type: object, description: Totali di squadra (stessi campi di un giocatore senza identità) }
+
+    # ---- NBA
+    NbaScheduleTeam:
+      type: object
+      properties:
+        teamId: { type: integer }
+        teamTricode: { type: string }
+        score: { type: integer }
+    NbaScheduleGame:
+      type: object
+      properties:
+        gameId: { type: string, example: '0022600012' }
+        gameCode: { type: string, example: 20261020/BOSDET, description: 'Data (costa Est), ospiti, casa' }
+        gameStatus: { type: integer, description: '1 da giocare, 2 in corso, 3 conclusa' }
+        gameDateTimeUTC: { type: string, format: date-time }
+        gameSubLabel: { type: string, description: 'Vuota; "Quarterfinal", "Semifinal"… per la NBA Cup a eliminazione' }
+        arenaName: { type: string }
+        arenaCity: { type: string }
+        homeTeam: { $ref: '#/components/schemas/NbaScheduleTeam' }
+        awayTeam: { $ref: '#/components/schemas/NbaScheduleTeam' }
+    NbaSchedule:
+      type: object
+      properties:
+        leagueSchedule:
+          type: object
+          properties:
+            seasonYear: { type: string, example: 2026-27 }
+            gameDates:
+              type: array
+              items:
+                type: object
+                properties:
+                  games: { type: array, items: { $ref: '#/components/schemas/NbaScheduleGame' } }
+    NbaScoreboard:
+      type: object
+      properties:
+        scoreboard:
+          type: object
+          properties:
+            games:
+              type: array
+              items:
+                type: object
+                properties:
+                  gameId: { type: string }
+                  gameStatus: { type: integer }
+                  homeTeam: { type: object, properties: { score: { type: integer } } }
+                  awayTeam: { type: object, properties: { score: { type: integer } } }
+    NbaStatistics:
+      type: object
+      properties:
+        minutes: { type: string, example: PT33M15.00S }
+        points: { type: integer }
+        foulsPersonal: { type: integer }
+        foulsDrawn: { type: integer }
+        twoPointersMade: { type: integer }
+        twoPointersAttempted: { type: integer }
+        threePointersMade: { type: integer }
+        threePointersAttempted: { type: integer }
+        freeThrowsMade: { type: integer }
+        freeThrowsAttempted: { type: integer }
+        reboundsOffensive: { type: integer }
+        reboundsDefensive: { type: integer }
+        reboundsTotal: { type: integer }
+        assists: { type: integer }
+        steals: { type: integer }
+        turnovers: { type: integer }
+        blocks: { type: integer }
+        blocksReceived: { type: integer }
+        plusMinusPoints: { type: number }
+        turnoversTotal: { type: integer, description: Solo nei totali di squadra }
+    NbaBoxScoreTeam:
+      type: object
+      properties:
+        players:
+          type: array
+          items:
+            type: object
+            properties:
+              personId: { type: integer }
+              firstName: { type: string }
+              familyName: { type: string }
+              jerseyNum: { type: string }
+              starter: { type: string }
+              statistics: { $ref: '#/components/schemas/NbaStatistics' }
+        statistics: { $ref: '#/components/schemas/NbaStatistics' }
+    NbaBoxScore:
+      type: object
+      properties:
+        game:
+          type: object
+          properties:
+            homeTeam: { $ref: '#/components/schemas/NbaBoxScoreTeam' }
+            awayTeam: { $ref: '#/components/schemas/NbaBoxScoreTeam' }
+    NbaPlayerIndex:
+      type: object
+      properties:
+        resultSets:
+          type: array
+          items:
+            type: object
+            properties:
+              headers: { type: array, items: { type: string } }
+              rowSet:
+                type: array
+                items:
+                  type: array
+                  items: { oneOf: [{ type: string }, { type: number }], nullable: true }
+
+    # ---- ESPN
+    EspnScoreboard:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            type: object
+            properties:
+              date: { type: string, format: date-time }
+              season: { type: object, properties: { type: { type: integer, description: '2 = Regular Season' } } }
+              competitions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    competitors:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          homeAway: { type: string, enum: [home, away] }
+                          score: { type: string }
+                          team: { type: object, properties: { abbreviation: { type: string } } }
+                    venue:
+                      type: object
+                      properties:
+                        fullName: { type: string }
+                        address: { type: object, properties: { city: { type: string } } }
+                    notes: { type: array, items: { type: object, properties: { headline: { type: string } } } }
+                    status:
+                      type: object
+                      properties:
+                        type: { type: object, properties: { state: { type: string, enum: [pre, in, post] } } }
+
+    # ---- TheSportsDB
+    TsdbRound:
+      type: object
+      properties:
+        events:
+          type: array
+          nullable: true
+          items:
+            type: object
+            properties:
+              strHomeTeam: { type: string }
+              strAwayTeam: { type: string }
+              intHomeScore: { type: string, nullable: true }
+              intAwayScore: { type: string, nullable: true }
+              strStatus: { type: string, nullable: true, description: '`FT` / `AOT` = conclusa' }
+              strTimestamp: { type: string, nullable: true, description: 'UTC, senza suffisso `Z`' }

@@ -1,0 +1,19 @@
+[Unit]
+Description=Sincronizzazione dati %i
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=pallaadue
+Group=pallaadue
+EnvironmentFile=/etc/palla-a-due/env
+WorkingDirectory=/opt/palla-a-due/app
+ExecStart=/usr/bin/node sync.js --league %i
+TimeoutStartSec=30min
+# isolamento
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/palla-a-due

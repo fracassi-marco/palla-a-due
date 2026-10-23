@@ -35,6 +35,8 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "lint": "expo lint",
+    "images:check": "node scripts/download-images.mjs --check",
+    "images:update": "node scripts/download-images.mjs",
     "docs:schema": "sed -n '/^```mermaid$/,/^```$/p' docs/database-schema.md | sed '1d;$d' | npx -y @mermaid-js/mermaid-cli -i - -o docs/database-schema.png -b white -s 2"
   },
   "private": true

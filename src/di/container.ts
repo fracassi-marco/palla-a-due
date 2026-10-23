@@ -7,11 +7,11 @@ import { GetPlayerProfile } from '../application/GetPlayerProfile';
 import { GetStandings } from '../application/GetStandings';
 import { GetTeamRoster } from '../application/GetTeamRoster';
 import { GetTeamStats } from '../application/GetTeamStats';
-import { currentSeasonYear } from '../application/season';
 import { SyncLeague } from '../application/SyncLeague';
 import { LEAGUES, LeagueId, leagueInfo } from '../domain/League';
-import { LeagueSource, MatchRepository } from '../domain/ports';
-import { ApiLeagueSource, FetchHttpClient, HttpClient } from '../infrastructure/api';
+import { MatchRepository } from '../domain/ports';
+import { FetchHttpClient } from '../infrastructure/api';
+import { BackendLeagueSource } from '../infrastructure/backend';
 import {
   ExpoSqliteDatabase,
   SqliteCompetitionRepository,
@@ -21,19 +21,24 @@ import {
   SqliteStandingsRepository,
   SqliteTeamRepository,
 } from '../infrastructure/db';
-import { EuroleagueLeagueSource } from '../infrastructure/euroleague/EuroleagueLeagueSource';
-import { EuroleagueV1LeagueSource } from '../infrastructure/euroleague/EuroleagueV1LeagueSource';
-import { EUROCUP, EUROLEAGUE, EuroleagueSeries } from '../infrastructure/euroleague/series';
-import { FallbackLeagueSource } from '../infrastructure/fallback/FallbackLeagueSource';
-import { LnpLeagueSource } from '../infrastructure/lnp/LnpLeagueSource';
-import { NbaEspnLeagueSource } from '../infrastructure/nba/NbaEspnLeagueSource';
-import { NBA_HEADERS, NbaLeagueSource } from '../infrastructure/nba/NbaLeagueSource';
-import { LNP_A2, LNP_B } from '../infrastructure/lnp/series';
 import { FavoriteTeamStore } from '../infrastructure/storage/FavoriteTeamStore';
 import { SelectedLeagueStore } from '../infrastructure/storage/SelectedLeagueStore';
-import { TheSportsDbLeagueSource } from '../infrastructure/thesportsdb/TheSportsDbLeagueSource';
+import { createSource } from './createSource';
 
-const LBA_API_BASE_URL = 'https://www.legabasket.it/api';
+/**
+ * Base URL del nostro backend (`server/`). Con `EXPO_PUBLIC_API_URL` vuoto la app usa solo le sorgenti dirette.
+ * Il valore è incorporato nella build, quindi non va messo nulla di segreto.
+ */
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://043q46l.cserverhost.cloud';
+const API_TIMEOUT_MS = 8000;
+/** Campionati serviti dal backend: gli altri restano sulle sorgenti dirette finché non vengono migrati. */
+const BACKEND_LEAGUES: readonly LeagueId[] = ['lba', 'nba'];
+
+/** I campionati migrati leggono solo dal backend, senza ripiegare sulle sorgenti esterne; gli altri vanno ancora direttamente. */
+function createLeagueSource(league: LeagueId, matches: MatchRepository) {
+  if (!API_BASE_URL || !BACKEND_LEAGUES.includes(league)) return createSource(league, matches);
+  return new BackendLeagueSource(new FetchHttpClient(API_BASE_URL, {}, API_TIMEOUT_MS), league);
+}
 
 /** Ogni campionato ha il suo database: gli id di LBA, LNP ed Euroleague, e quelli delle stagioni, non devono mescolarsi. */
 const DATABASE_NAMES: Record<LeagueId, string> = {
@@ -44,35 +49,6 @@ const DATABASE_NAMES: Record<LeagueId, string> = {
   eurocup: 'pallaadue-eurocup.db',
   nba: 'pallaadue-nba.db',
 };
-
-/** Id delle leghe su TheSportsDB (backup di calendario e punteggi per i campionati con una sola fonte). */
-const THESPORTSDB_LEAGUE = { lba: 4433, a2: 5377 } as const;
-
-const createSource = (league: LeagueId, matches: MatchRepository): LeagueSource => {
-  const http = new FetchHttpClient();
-  const sportsDb = (id: number) => new TheSportsDbLeagueSource(http, matches, id, currentSeasonYear);
-  switch (league) {
-    case 'lba':
-      return new FallbackLeagueSource(new ApiLeagueSource(new FetchHttpClient(LBA_API_BASE_URL)), [
-        sportsDb(THESPORTSDB_LEAGUE.lba),
-      ]);
-    case 'a2':
-      return new FallbackLeagueSource(new LnpLeagueSource(http, LNP_A2), [sportsDb(THESPORTSDB_LEAGUE.a2)]);
-    case 'b':
-      return new LnpLeagueSource(http, LNP_B);
-    case 'euroleague':
-      return euroleagueSource(http, EUROLEAGUE);
-    case 'eurocup':
-      return euroleagueSource(http, EUROCUP);
-    case 'nba':
-      return new FallbackLeagueSource(new NbaLeagueSource(new FetchHttpClient('', NBA_HEADERS)), [new NbaEspnLeagueSource(http)]);
-  }
-};
-
-const euroleagueSource = (http: HttpClient, series: EuroleagueSeries) =>
-  new FallbackLeagueSource(new EuroleagueLeagueSource(http, series, currentSeasonYear), [
-    new EuroleagueV1LeagueSource(http, series, currentSeasonYear),
-  ]);
 
 /**
  * Casi d'uso di un campionato. Le schermate leggono solo dal suo database locale;
@@ -95,7 +71,7 @@ function createUseCases(league: LeagueId) {
   const getCurrentRound = new GetCurrentRound(competitions, matches);
 
   return {
-    sync: new SyncLeague(createSource(league, matches), new SqliteLeagueStore(database)),
+    sync: new SyncLeague(createLeagueSource(league, matches), new SqliteLeagueStore(database)),
     getStandings: new GetStandings(competitions, standings, info),
     getCurrentRound,
     getCalendar: new GetCalendar(competitions, matches, standings, getCurrentRound),

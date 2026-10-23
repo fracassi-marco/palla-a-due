@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Scarica loghi delle squadre e foto dei giocatori di LBA, Serie A2, Serie B Nazionale (LNP) e NBA e genera
 // il manifest `src/infrastructure/images/manifest.ts` usato dall'app.
-// Uso: node scripts/download-images.mjs [anno-inizio-stagione]
+// Uso: node scripts/download-images.mjs [anno-inizio-stagione] [--check]
+// Con --check non scarica né scrive nulla: elenca le immagini che mancano e termina con codice 1 se ce ne sono.
 import { execFile } from 'node:child_process';
 import { mkdir, mkdtemp, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
@@ -41,7 +42,8 @@ const imagesDir = path.join(root, 'assets', 'images');
 const manifestPath = path.join(root, 'src', 'infrastructure', 'images', 'manifest.ts');
 
 const now = new Date();
-const season = Number(process.argv[2]) || (now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1);
+const CHECK = process.argv.includes('--check');
+const season = Number(process.argv.slice(2).find((arg) => !arg.startsWith('--'))) || (now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1);
 
 // Gli originali sono PNG da 2-3k px (~10 MB): nell'app si include una WebP ridimensionata (con alpha).
 // Richiede `cwebp` (brew install webp). Larghezze pari a ~3x la dimensione massima mostrata.
@@ -76,13 +78,15 @@ async function existing(dir) {
  * come in `resolveImageSource`. Se una chiave compare in più campionati vale il primo.
  * Ritorna chiave → percorso relativo a `assets/images/<kind>`.
  */
+let missingCount = 0;
+
 async function download(kind, sourcesByLeague) {
   const dir = path.join(imagesDir, kind);
   const files = await existing(dir);
   const jobs = [];
   const seen = new Map();
   for (const [league, sources] of Object.entries(sourcesByLeague)) {
-    await mkdir(path.join(dir, league), { recursive: true });
+    if (!CHECK) await mkdir(path.join(dir, league), { recursive: true });
     for (const [key, url] of sources) {
       if (seen.has(key)) {
         if (seen.get(key) !== url) console.warn(`  collisione sulla chiave ${kind}/${key}: ${seen.get(key)} e ${url}`);
@@ -93,6 +97,7 @@ async function download(kind, sourcesByLeague) {
     }
   }
   const result = {};
+  const missing = [];
   let fetched = 0;
   let moved = 0;
   const worker = async () => {
@@ -105,6 +110,10 @@ async function download(kind, sourcesByLeague) {
         continue;
       }
       if (current && !current.includes('/')) {
+        if (CHECK) {
+          result[key] = current;
+          continue;
+        }
         // File della vecchia struttura piatta: lo sposto nella cartella del campionato.
         await rename(path.join(dir, current), path.join(dir, name));
         moved++;
@@ -113,6 +122,10 @@ async function download(kind, sourcesByLeague) {
       }
       if (current) {
         result[key] = current;
+        continue;
+      }
+      if (CHECK) {
+        missing.push(`${league}/${key}  ${url}`);
         continue;
       }
       const res = await fetch(url);
@@ -136,6 +149,12 @@ async function download(kind, sourcesByLeague) {
     }
   };
   await Promise.all(Array.from({ length: 8 }, worker));
+  if (CHECK) {
+    console.log(`${kind}: ${seen.size} nelle sorgenti, ${missing.length} mancanti`);
+    for (const line of missing.sort()) console.log(`  + ${line}`);
+    missingCount += missing.length;
+    return result;
+  }
   console.log(`${kind}: ${Object.keys(result).length} immagini (${fetched} nuove, ${moved} spostate)`);
   return result;
 }
@@ -202,6 +221,11 @@ for (const [list, league] of LNP_TEAM_LISTS) {
 
 const teams = await download('teams', teamSources);
 const players = await download('players', playerSources);
+
+if (CHECK) {
+  console.log(missingCount === 0 ? 'Nessuna immagine nuova.' : `${missingCount} immagini nuove: lancia lo script senza --check per scaricarle.`);
+  process.exit(missingCount === 0 ? 0 : 1);
+}
 
 const entries = (kind, map) =>
   Object.entries(map)
