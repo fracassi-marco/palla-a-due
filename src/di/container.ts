@@ -31,10 +31,10 @@ import { createSource } from './createSource';
  */
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://043q46l.cserverhost.cloud';
 const API_TIMEOUT_MS = 8000;
-/** Campionati serviti dal backend: gli altri restano sulle sorgenti dirette finché non vengono migrati. */
-const BACKEND_LEAGUES: readonly LeagueId[] = ['lba', 'nba'];
+/** Campionati serviti dal backend: tutti. */
+const BACKEND_LEAGUES: readonly LeagueId[] = ['lba', 'a2', 'b', 'euroleague', 'eurocup', 'nba'];
 
-/** I campionati migrati leggono solo dal backend, senza ripiegare sulle sorgenti esterne; gli altri vanno ancora direttamente. */
+/** I campionati migrati leggono solo dal backend, senza ripiegare sulle sorgenti esterne. Senza URL (sviluppo) vanno direttamente alle sorgenti. */
 function createLeagueSource(league: LeagueId, matches: MatchRepository) {
   if (!API_BASE_URL || !BACKEND_LEAGUES.includes(league)) return createSource(league, matches);
   return new BackendLeagueSource(new FetchHttpClient(API_BASE_URL, {}, API_TIMEOUT_MS), league);

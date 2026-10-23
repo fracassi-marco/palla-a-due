@@ -345,13 +345,29 @@ l'IP giusto? Il log di Caddy riporta l'errore di Let's Encrypt (per esempio un r
 ```
 043q46l.cserverhost.cloud {
 	encode zstd gzip
+	log {
+		output file /var/log/caddy/access.log {
+			roll_size 10mb
+			roll_keep 5
+		}
+		format json
+	}
 	reverse_proxy 127.0.0.1:3000
 }
 ```
 
+L'access log va in un file che Caddy (utente `caddy`) deve poter scrivere. Crealo **prima** del reload:
+
 ```bash
+sudo mkdir -p /var/log/caddy
+sudo chown caddy:caddy /var/log/caddy
 sudo systemctl reload caddy
 ```
+
+Se il reload fallisce con `open /var/log/caddy/access.log: permission denied`, il file è stato creato da root (succede con
+`sudo caddy validate`): `sudo chown caddy:caddy /var/log/caddy/access.log` e di nuovo il reload. Per validare usa
+`sudo -u caddy caddy validate --config /etc/caddy/Caddyfile`. Come leggere il log e ricavarne statistiche:
+`docs/server-logs.md`.
 
 Caddy rinnova il certificato da solo (circa ogni 60 giorni, senza intervento). L'API è un secondo servizio systemd
 (`palla-a-due-api.service`, `Restart=on-failure`, stesso utente e `EnvironmentFile`), che `deploy.sh` installa e riavvia.
@@ -415,6 +431,7 @@ sorgenti, il backup notturno è sufficiente.
   di qualche ora; lo script di sincronizzazione chiama l'URL (`HEALTHCHECK_URL_<CAMPIONATO>`) solo a fine lavoro
   riuscito, e ricevi un avviso se un cron salta o fallisce.
 - `systemctl --failed` elenca le unità fallite; `journalctl -p err -u 'palla-a-due-*' --since today` i loro errori.
+- Traffico e errori dell'API: access log di Caddy, query pronte in `docs/server-logs.md`.
 - Dopo l'API: un endpoint che riporta `lastSyncedAt` per campionato (vedi `docs/backend.md`).
 - Spazio disco: `df -h /var/lib/palla-a-due` (il database pesa decine di MB per stagione).
 
@@ -429,6 +446,7 @@ sorgenti, il backup notturno è sufficiente.
 - [ ] Primo popolamento lanciato a mano per ogni campionato
 - [ ] Porte 22, 80 e 443 aperte anche nel firewall IONOS; `dig +short 043q46l.cserverhost.cloud` restituisce `93.93.118.51`
 - [ ] Caddy installato e `curl https://043q46l.cserverhost.cloud` risponde senza errori di certificato
+- [ ] Access log di Caddy attivo (`/var/log/caddy/access.log`, proprietario `caddy`)
 - [ ] Backup notturno configurato e ripristino provato
 - [ ] Ping di monitoraggio per ogni cron
 

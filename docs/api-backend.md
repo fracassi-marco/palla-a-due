@@ -43,7 +43,7 @@ Variabili: `DATABASE_DIR` (obbligatoria in produzione), `PORT` (3000), `HOST` (1
 
 ## Nella app
 
-`src/di/container.ts`: `BACKEND_LEAGUES` elenca i campionati serviti dal backend (ora `lba` e `nba`); `EXPO_PUBLIC_API_URL`
+`src/di/container.ts`: `BACKEND_LEAGUES` elenca i campionati serviti dal backend (ora tutti: `lba`, `a2`, `b`, `euroleague`, `eurocup`, `nba`); `EXPO_PUBLIC_API_URL`
 cambia l'URL di base (default `https://043q46l.cserverhost.cloud`) e, se vuoto, disattiva il backend (la app torna alle sorgenti dirette: serve per lo sviluppo). Timeout richiesta: 8 s.
 Per aggiungere un campionato basta inserirlo in `BACKEND_LEAGUES` dopo aver fatto girare il suo cron.
 
