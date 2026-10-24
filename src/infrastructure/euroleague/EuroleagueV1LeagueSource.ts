@@ -106,6 +106,7 @@ export class EuroleagueV1LeagueSource implements LeagueSource {
           dayNumber,
           dayName: `Giornata ${dayNumber}`,
           hasStreaming: false,
+          liveLabel: null,
         };
       }),
     );

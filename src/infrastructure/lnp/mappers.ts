@@ -78,5 +78,6 @@ export function toMatch(dto: ScheduleGameDto, competition: number, logos: LogoEx
     dayNumber,
     dayName: `Giornata ${dayNumber}`,
     hasStreaming: Boolean(dto.stream_url),
+    liveLabel: null,
   };
 }

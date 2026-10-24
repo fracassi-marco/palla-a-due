@@ -17,7 +17,7 @@ import { formatDayMonth, formatTime, formatWeekday } from '../../presentation/th
 
 type Params = Record<'id' | 'day' | 'homeId' | 'awayId' | 'homeName' | 'awayName' | 'homeLogo' | 'awayLogo' | 'startsAt' | 'status' | 'homeScore' | 'awayScore', string>;
 
-const LIVE_REFRESH_MS = 30_000;
+const LIVE_REFRESH_MS = 12_000;
 const PRE_GAME_WINDOW_MS = 30 * 60_000;
 
 export default function MatchScreen() {
@@ -100,7 +100,7 @@ export default function MatchScreen() {
           ) : (
             <Text style={styles.vs}>VS</Text>
           )}
-          {live ? <Text style={styles.live}>● LIVE</Text> : null}
+          {live ? <Text style={styles.live}>● LIVE{matchState.data?.liveLabel ? ` · ${matchState.data.liveLabel}` : ''}</Text> : null}
           <Text style={styles.date}>{formatWeekday(startsAt)} {formatDayMonth(startsAt)}</Text>
           <Text style={styles.time}>{formatTime(startsAt)}</Text>
         </View>

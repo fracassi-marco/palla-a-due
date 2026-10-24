@@ -181,4 +181,8 @@ JOIN matches m ON m.id = ts.match_id AND m.status = 'finished'
 GROUP BY m.competition_id, ts.team_id;
 `;
 
-export const MIGRATIONS: string[] = [MIGRATION_1];
+const MIGRATION_2 = `
+ALTER TABLE matches ADD COLUMN live_label TEXT;
+`;
+
+export const MIGRATIONS: string[] = [MIGRATION_1, MIGRATION_2];

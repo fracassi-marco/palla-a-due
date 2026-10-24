@@ -1,3 +1,4 @@
+import { liveLabel } from '../../domain/liveLabel';
 import {
   BoxScorePlayer,
   BoxScoreSide,
@@ -39,7 +40,7 @@ function toMatchStatus(gameStatus: string): MatchStatus {
   return 'scheduled';
 }
 
-export function toMatch(dto: MatchDto): Match {
+export function toMatch(dto: MatchDto, quarter: number | null = null): Match {
   return {
     id: dto.id,
     status: toMatchStatus(dto.game_status),
@@ -53,6 +54,7 @@ export function toMatch(dto: MatchDto): Match {
     dayNumber: dto.day_serial,
     dayName: dto.day_name,
     hasStreaming: dto.has_streaming === 1,
+    liveLabel: quarter === null ? null : liveLabel(quarter, null),
   };
 }
 

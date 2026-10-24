@@ -22,7 +22,7 @@ import { usePolling } from '../presentation/hooks/usePolling';
 import { useDataVersion } from '../presentation/hooks/useSync';
 import { colors, fonts, radius } from '../presentation/theme';
 
-const LIVE_SYNC_MS = 30_000;
+const LIVE_SYNC_MS = 12_000;
 
 const HOME_STATS = Object.keys(RANKING_STATS) as RankedStat[];
 

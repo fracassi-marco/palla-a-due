@@ -24,12 +24,18 @@ interface EspnEventDto {
     competitors: EspnCompetitorDto[];
     venue?: { fullName?: string; address?: { city?: string } };
     notes?: { headline?: string }[];
-    status: { type: { state: 'pre' | 'in' | 'post' } };
+    status: { period: number; displayClock: string; type: { state: 'pre' | 'in' | 'post' } };
   }[];
 }
 
 interface EspnScoreboardDto {
   events: EspnEventDto[];
+}
+
+/** `displayClock` di ESPN ("5:32", "45.3" sotto il minuto) come durata ISO, la forma che usa il feed della NBA. */
+function espnClock(display: string): string {
+  const [minutes, seconds] = display.includes(':') ? display.split(':') : ['0', display];
+  return `PT${Number(minutes) || 0}M${Number(seconds) || 0}S`;
 }
 
 const STATES: Record<string, MatchStatus> = { pre: 'scheduled', in: 'live', post: 'finished' };
@@ -106,6 +112,7 @@ function toMatches(competition: number, seasonYear: number, date: string, event:
       new Date(event.date),
       { home: Number(home.score) || 0, away: Number(away.score) || 0 },
       game.venue?.fullName ? { name: game.venue.fullName, city: game.venue.address?.city ?? '' } : null,
+      { period: game.status.period, clock: espnClock(game.status.displayClock) },
     ),
   ];
 }

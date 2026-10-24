@@ -13,7 +13,7 @@ import { useOpenMatch } from '../presentation/hooks/useOpenMatch';
 import { colors, fonts, radius } from '../presentation/theme';
 
 const CHIP_WIDTH = 64;
-const LIVE_SYNC_MS = 30_000;
+const LIVE_SYNC_MS = 12_000;
 
 function DayMatches({ competitionIds, day }: { competitionIds: number[]; day: number }) {
   const openMatch = useOpenMatch();

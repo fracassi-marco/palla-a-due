@@ -22,7 +22,7 @@ export function MatchCard({ match, onPress, width }: Props) {
           {live ? (
             <View style={styles.livePill}>
               <View style={styles.liveDot} />
-              <Text style={styles.liveText}>LIVE</Text>
+              <Text style={styles.liveText}>{match.liveLabel ? `LIVE · ${match.liveLabel}` : 'LIVE'}</Text>
             </View>
           ) : null}
         </View>

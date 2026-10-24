@@ -33,6 +33,11 @@ export interface MatchDto {
   day_name: string;
 }
 
+/** Scheda di una partita: a differenza del calendario dice il quarto in corso ("1"-"4", "5" = supplementare). */
+export interface MatchResponseDto {
+  match: { quarter: string | null };
+}
+
 export interface CalendarResponseDto {
   matches: MatchDto[] | null;
   cdn_url: string;

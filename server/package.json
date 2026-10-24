@@ -13,7 +13,10 @@
     "api": "npm run build && DATABASE_DIR=./data node dist/api.js"
   },
   "dependencies": {
-    "better-sqlite3": "^12.0.0"
+    "better-sqlite3": "^12.0.0",
+    "expo": "~58.0.16",
+    "react": "19.3.0",
+    "react-native": "0.88.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

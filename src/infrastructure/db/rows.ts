@@ -96,7 +96,7 @@ export const toPlayer = (row: PlayerRow): Player => ({
 /** SELECT di una partita con le due squadre, da completare con WHERE e ORDER BY. */
 export const MATCH_SELECT = `
   SELECT m.id, m.status, m.starts_at, m.day_number, m.day_name, m.home_score, m.away_score,
-         m.venue, m.city, m.has_streaming,
+         m.venue, m.city, m.has_streaming, m.live_label,
          h.id AS h_id, h.name AS h_name, h.code AS h_code, h.logo_url AS h_logo,
          a.id AS a_id, a.name AS a_name, a.code AS a_code, a.logo_url AS a_logo
   FROM matches m
@@ -114,6 +114,7 @@ export interface MatchRow {
   venue: string | null;
   city: string | null;
   has_streaming: number;
+  live_label: string | null;
   h_id: number;
   h_name: string;
   h_code: string;
@@ -137,6 +138,7 @@ export const toMatch = (row: MatchRow): Match => ({
   dayNumber: row.day_number,
   dayName: row.day_name,
   hasStreaming: row.has_streaming === 1,
+  liveLabel: row.live_label,
 });
 
 /** Squadre che hanno giocato (o giocheranno) nella competizione; due segnaposto `?` con lo stesso id. */

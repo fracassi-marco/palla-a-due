@@ -46,6 +46,7 @@ export function toMatch(dto: GameDto, competition: number, now: number, liveScor
     dayNumber: dto.round,
     dayName: `Giornata ${dto.round}`,
     hasStreaming: false,
+    liveLabel: null,
   };
 }
 

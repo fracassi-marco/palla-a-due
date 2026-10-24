@@ -15,4 +15,6 @@ export interface Match {
   dayNumber: number;
   dayName: string;
   hasStreaming: boolean;
+  /** Dove si è arrivati, a partita live ("Q2 5:32", "Intervallo"); null se la fonte non lo dà. */
+  liveLabel: string | null;
 }

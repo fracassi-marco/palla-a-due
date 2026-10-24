@@ -28,6 +28,9 @@ export interface ScheduleDto {
 export interface ScoreboardGameDto {
   gameId: string;
   gameStatus: number;
+  period: number;
+  /** Tempo rimasto nel periodo come durata ISO ("PT05M32.00S"); vuoto tra un periodo e l'altro. */
+  gameClock: string;
   homeTeam: { score: number };
   awayTeam: { score: number };
 }

@@ -14,6 +14,7 @@ import { join } from 'node:path';
 import { currentSeasonYear } from '../../src/application/season';
 import { createSource } from '../../src/di/createSource';
 import { isLeagueId, LeagueId } from '../../src/domain/League';
+import { Match } from '../../src/domain/entities';
 import { LeagueSource } from '../../src/domain/ports';
 import { HttpError } from '../../src/infrastructure/api/HttpClient';
 import { BetterSqliteDatabase } from './BetterSqliteDatabase';
@@ -28,6 +29,8 @@ const HOUR = 60 * MINUTE;
 const LIVE_TTL_MS = 15 * SECOND;
 const PENDING_TTL_MS = 5 * MINUTE;
 const STATIC_TTL_MS = HOUR;
+const LIVE_WINDOW_BEFORE_MS = 30 * MINUTE;
+const LIVE_WINDOW_AFTER_MS = 4 * HOUR;
 /** Cache del client (`Cache-Control`) per i dati definitivi. */
 const FINAL_MAX_AGE_S = 3600;
 
@@ -85,13 +88,24 @@ async function competitions(league: LeagueId, season: number): Promise<Payload<u
   return live(`${league}:competitions:${season}`, STATIC_TTL_MS, () => source.findRegularSeasons(season), null);
 }
 
+/**
+ * Una partita è in corso, o lo può essere: il database è aggiornato dai cron una volta al giorno e la dà ancora
+ * "in programma" quando è già iniziata, quindi si guarda anche l'orario (ultima mezz'ora prima della palla a due, poi 4 ore).
+ */
+function mayBeLive(match: Match): boolean {
+  if (match.status === 'live') return true;
+  if (match.status === 'finished') return false;
+  const sinceKickoff = Date.now() - match.startsAt.getTime();
+  return sinceKickoff > -LIVE_WINDOW_BEFORE_MS && sinceKickoff < LIVE_WINDOW_AFTER_MS;
+}
+
 async function day(league: LeagueId, competitionId: number, dayNumber: number): Promise<Payload<unknown>> {
   const { reader, source } = contextOf(league);
   const stored = await reader.day(competitionId, dayNumber);
   const matches = stored?.value ?? [];
   if (matches.length > 0 && matches.every((m) => m.status === 'finished')) return db(stored!, FINAL_MAX_AGE_S);
 
-  const ttl = matches.some((m) => m.status === 'live') ? LIVE_TTL_MS : PENDING_TTL_MS;
+  const ttl = matches.some(mayBeLive) ? LIVE_TTL_MS : PENDING_TTL_MS;
   return live(`${league}:day:${competitionId}:${dayNumber}`, ttl, () => source.getDay(competitionId, dayNumber), stored);
 }
 

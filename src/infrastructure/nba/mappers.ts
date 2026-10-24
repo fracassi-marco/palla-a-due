@@ -1,3 +1,4 @@
+import { liveLabel } from '../../domain/liveLabel';
 import { BoxScorePlayer, BoxScoreSide, GameStats, Match, MatchStatus, Player, TeamRef } from '../../domain/entities';
 import { BoxScorePlayerDto, BoxScoreTeamDto, ScheduleGameDto, StatisticsDto } from './dto';
 import { matchId } from './ids';
@@ -22,6 +23,7 @@ export function toMatch(
   startsAt: Date,
   score: { home: number; away: number },
   venue: { name: string; city: string } | null,
+  live: { period: number; clock: string } | null = null,
 ): Match {
   const week = weekOf(seasonYear, date);
   const started = status !== 'scheduled';
@@ -38,7 +40,14 @@ export function toMatch(
     dayNumber: week,
     dayName: `Settimana ${week}`,
     hasStreaming: false,
+    liveLabel: status === 'live' && live ? liveLabel(live.period, clockSeconds(live.clock)) : null,
   };
+}
+
+/** "PT05M32.00S" → 332 secondi; vuoto (tra un periodo e l'altro) → 0. */
+export function clockSeconds(duration: string): number {
+  const match = /^PT(?:(\d+)M)?(\d+(?:\.\d+)?)S$/.exec(duration);
+  return match ? Number(match[1] ?? 0) * 60 + Number(match[2]) : 0;
 }
 
 export const gameDate = (game: ScheduleGameDto) => game.gameCode.slice(0, 8);

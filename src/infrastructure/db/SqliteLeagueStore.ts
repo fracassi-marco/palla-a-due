@@ -122,13 +122,14 @@ export class SqliteLeagueStore implements LeagueStore {
         await upsertTeam(txn, m.away);
         await txn.runAsync(
           `INSERT INTO matches (id, competition_id, day_number, day_name, starts_at, status, home_team_id, away_team_id,
-                                home_score, away_score, venue, city, has_streaming)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                home_score, away_score, venue, city, has_streaming, live_label)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT (id) DO UPDATE SET competition_id = excluded.competition_id, day_number = excluded.day_number,
              day_name = excluded.day_name, starts_at = excluded.starts_at, status = excluded.status,
              home_team_id = excluded.home_team_id, away_team_id = excluded.away_team_id,
              home_score = excluded.home_score, away_score = excluded.away_score,
-             venue = excluded.venue, city = excluded.city, has_streaming = excluded.has_streaming`,
+             venue = excluded.venue, city = excluded.city, has_streaming = excluded.has_streaming,
+             live_label = excluded.live_label`,
           [
             m.id,
             competitionId,
@@ -143,6 +144,7 @@ export class SqliteLeagueStore implements LeagueStore {
             m.venue,
             m.city,
             m.hasStreaming ? 1 : 0,
+            m.liveLabel,
           ],
         );
       }

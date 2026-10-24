@@ -116,6 +116,7 @@ export class NbaLeagueSource implements LeagueSource {
         new Date(game.gameDateTimeUTC),
         { home: score.homeTeam.score, away: score.awayTeam.score },
         { name: game.arenaName, city: game.arenaCity },
+        update && { period: update.period, clock: update.gameClock },
       );
     });
   }
