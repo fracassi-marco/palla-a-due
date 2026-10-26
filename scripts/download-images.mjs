@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Scarica loghi delle squadre e foto dei giocatori di LBA, Serie A2, Serie B Nazionale (LNP) e NBA e genera
+// Scarica loghi delle squadre e foto dei giocatori di LBA, Serie A2, Serie B Nazionale (LNP), NBA e WNBA e genera
 // il manifest `src/infrastructure/images/manifest.ts` usato dall'app.
 // Uso: node scripts/download-images.mjs [anno-inizio-stagione] [--check]
 // Con --check non scarica né scrive nulla: elenca le immagini che mancano e termina con codice 1 se ce ne sono.
@@ -27,6 +27,9 @@ const NBA_HEADERS = {
   'sec-fetch-site': 'same-site',
   'sec-ch-ua': '"Chromium";v="126"',
 };
+// WNBA: ESPN, senza protezioni. Le chiavi hanno il suffisso `?wnba` (vedi `logoUrl` in src/infrastructure/wnba/mappers.ts) per non
+// coincidere con quelle NBA (`atl.png`); nel nome del file il `?` diventa `@`.
+const WNBA_API = 'https://site.api.espn.com/apis/site/v2/sports/basketball/wnba';
 const NBA_HEADSHOT = 'https://cdn.nba.com/headshots/nba/latest/1040x760';
 // Gli id delle squadre NBA vanno da 1610612737 a 1610612766: i giocatori svincolati hanno TEAM_ID 0.
 const NBA_TEAM_ID = /^16106127[3-6]\d$/;
@@ -59,6 +62,9 @@ async function getJson(endpoint, params) {
   if (!res.ok) throw new Error(`${endpoint} ${res.status}`);
   return res.json();
 }
+
+/** Nome di file di una chiave: `?` non è adatto a un percorso. */
+const fileKey = (key) => key.replace('?', '@');
 
 /** Chiave → percorso relativo a `dir` di tutti i file già presenti, anche nelle sottocartelle dei campionati. */
 async function existing(dir) {
@@ -103,8 +109,8 @@ async function download(kind, sourcesByLeague) {
   const worker = async () => {
     for (let job = jobs.pop(); job; job = jobs.pop()) {
       const { key, url, league } = job;
-      const name = `${league}/${key}.webp`;
-      const current = files.get(key);
+      const name = `${league}/${fileKey(key)}.webp`;
+      const current = files.get(fileKey(key));
       if (current === name) {
         result[key] = name;
         continue;
@@ -164,8 +170,8 @@ const rs = competitions.find((c) => c.ctype_code === 'RS' && c.cserie_code === '
 if (!rs) throw new Error(`Regular Season Serie A ${season} non trovata`);
 const { standings } = await getJson('/championships/get-championship-ranking', { id: rs.id });
 
-const teamSources = { lba: new Map(), a2: new Map(), b: new Map(), nba: new Map() };
-const playerSources = { lba: new Map(), a2: new Map(), b: new Map(), nba: new Map() };
+const teamSources = { lba: new Map(), a2: new Map(), b: new Map(), nba: new Map(), wnba: new Map() };
+const playerSources = { lba: new Map(), a2: new Map(), b: new Map(), nba: new Map(), wnba: new Map() };
 const lbaImage = (key) => [key, `${CDN}/${key}`];
 for (const s of standings) {
   if (s.logo_key) teamSources.lba.set(...lbaImage(s.logo_key));
@@ -217,6 +223,24 @@ for (const [list, league] of LNP_TEAM_LISTS) {
   }
   for (const [key, url] of logos) teamSources.nba.set(key, url);
   console.log(`NBA: ${logos.size} squadre, ${playerSources.nba.size} giocatori`);
+}
+
+// WNBA: logo di ogni squadra e foto dei giocatori dei roster.
+{
+  const getEspn = async (endpoint) => {
+    const res = await fetch(`${WNBA_API}${endpoint}`);
+    if (!res.ok) throw new Error(`WNBA ${endpoint} ${res.status}`);
+    return res.json();
+  };
+  const { sports } = await getEspn('/teams');
+  for (const { team } of sports[0].leagues[0].teams) {
+    const code = team.abbreviation.toLowerCase();
+    teamSources.wnba.set(`${code}.png?wnba`, `https://a.espncdn.com/i/teamlogos/wnba/500/${code}.png`);
+    for (const athlete of (await getEspn(`/teams/${team.id}/roster`)).athletes) {
+      playerSources.wnba.set(`${athlete.id}.png?wnba`, `https://a.espncdn.com/i/headshots/wnba/players/full/${athlete.id}.png`);
+    }
+  }
+  console.log(`WNBA: ${teamSources.wnba.size} squadre, ${playerSources.wnba.size} giocatori`);
 }
 
 const teams = await download('teams', teamSources);

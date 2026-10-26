@@ -10,6 +10,7 @@ import { LnpLeagueSource } from '../infrastructure/lnp/LnpLeagueSource';
 import { LNP_A2, LNP_B } from '../infrastructure/lnp/series';
 import { NbaEspnLeagueSource } from '../infrastructure/nba/NbaEspnLeagueSource';
 import { NBA_HEADERS, NbaLeagueSource } from '../infrastructure/nba/NbaLeagueSource';
+import { WnbaLeagueSource } from '../infrastructure/wnba/WnbaLeagueSource';
 import { TheSportsDbLeagueSource } from '../infrastructure/thesportsdb/TheSportsDbLeagueSource';
 
 const LBA_API_BASE_URL = 'https://www.legabasket.it/api';
@@ -36,6 +37,8 @@ export const createSource = (league: LeagueId, matches: MatchRepository): League
       return euroleagueSource(http, EUROCUP);
     case 'nba':
       return new FallbackLeagueSource(new NbaLeagueSource(new FetchHttpClient('', NBA_HEADERS)), [new NbaEspnLeagueSource(http)]);
+    case 'wnba':
+      return new WnbaLeagueSource(http);
   }
 };
 

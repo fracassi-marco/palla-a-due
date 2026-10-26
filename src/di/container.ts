@@ -32,7 +32,7 @@ import { createSource } from './createSource';
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://043q46l.cserverhost.cloud';
 const API_TIMEOUT_MS = 8000;
 /** Campionati serviti dal backend: tutti. */
-const BACKEND_LEAGUES: readonly LeagueId[] = ['lba', 'a2', 'b', 'euroleague', 'eurocup', 'nba'];
+const BACKEND_LEAGUES: readonly LeagueId[] = ['lba', 'a2', 'b', 'euroleague', 'eurocup', 'nba', 'wnba'];
 
 /** I campionati migrati leggono solo dal backend, senza ripiegare sulle sorgenti esterne. Senza URL (sviluppo) vanno direttamente alle sorgenti. */
 function createLeagueSource(league: LeagueId, matches: MatchRepository) {
@@ -48,6 +48,7 @@ const DATABASE_NAMES: Record<LeagueId, string> = {
   euroleague: 'pallaadue-euroleague.db',
   eurocup: 'pallaadue-eurocup.db',
   nba: 'pallaadue-nba.db',
+  wnba: 'pallaadue-wnba.db',
 };
 
 /**

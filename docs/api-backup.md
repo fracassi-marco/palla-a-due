@@ -16,6 +16,7 @@ della principale (un backup può coprire solo una parte dei dati e rifiutare il 
 | Serie B Nazionale | `lnpstat.domino.it` + HTML LNP | nessuno | – |
 | EuroLeague / EuroCup | API v2 `api-live.euroleague.net` | API v1 `api-live.euroleague.net/v1` | Tutto: competizioni, calendario, punteggi, box score, roster |
 | NBA | `cdn.nba.com/static/json` | Tabellone ESPN `site.api.espn.com` | Calendario, stato e punteggi (anche live) |
+| WNBA | ESPN `site.api.espn.com` | nessuno | – |
 
 ## Euroleague API v1 (`EuroleagueV1LeagueSource`)
 

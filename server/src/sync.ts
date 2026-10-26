@@ -20,6 +20,7 @@ const GROUPS: Record<string, LeagueId[]> = {
   lba: ['lba'],
   euroleague: ['euroleague', 'eurocup'],
   nba: ['nba'],
+  wnba: ['wnba'],
 };
 
 /** Il server è un unico client: richieste in parallelo contenute per non far scattare i limiti (429) delle API. */

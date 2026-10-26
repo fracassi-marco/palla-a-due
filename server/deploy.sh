@@ -18,7 +18,7 @@ ssh -t "$TARGET" "set -e
 cd $APP && npm ci --omit=dev
 sudo cp $APP/systemd/palla-a-due-sync@* $APP/systemd/palla-a-due-api.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now palla-a-due-sync@{lnp-a2,lnp-b,lba,euroleague,nba}.timer
+sudo systemctl enable --now palla-a-due-sync@{lnp-a2,lnp-b,lba,euroleague,nba,wnba}.timer
 sudo systemctl enable palla-a-due-api.service
 sudo systemctl restart palla-a-due-api.service
 systemctl list-timers 'palla-a-due-*' --no-pager

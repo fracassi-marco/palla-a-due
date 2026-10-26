@@ -1,0 +1,10 @@
+[Unit]
+Description=Sincronizzazione giornaliera WNBA
+
+[Timer]
+OnCalendar=*-*-* 11:10:00 Europe/Rome
+RandomizedDelaySec=120
+Persistent=true
+
+[Install]
+WantedBy=timers.target

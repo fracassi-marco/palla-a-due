@@ -133,7 +133,7 @@ sudo chmod 755 /opt/palla-a-due    # adduser --system crea la home con 750: senz
 ```
 
 I database stanno in `/var/lib/palla-a-due/`, su disco locale (SQLite non va messo su un filesystem di rete): **un file
-per campionato** (`lba.db`, `a2.db`, `b.db`, `euroleague.db`, `eurocup.db`, `nba.db`), come nella app, perché gli id di
+per campionato** (`lba.db`, `a2.db`, `b.db`, `euroleague.db`, `eurocup.db`, `nba.db`, `wnba.db`), come nella app, perché gli id di
 LBA, LNP ed Euroleague e quelli delle stagioni non devono mescolarsi. Li creano e li migrano i cron alla prima
 esecuzione (`migrate.ts` della app); la modalità WAL permette ai cron di scrivere mentre l'API legge, e avere un file
 per campionato evita che i timer si contendano la scrittura.
@@ -259,13 +259,14 @@ Orari consigliati (ora italiana, dopo la fine delle partite del giorno prima):
 | LBA | `lba` | 08:00 | |
 | EuroLeague / EuroCup | `euroleague` | 08:15 | sincronizza prima EuroLeague, poi EuroCup (pausa di 90 s: stesso host) |
 | NBA | `nba` | 11:00 | le partite finiscono verso le 6 in Italia |
+| WNBA | `wnba` | 11:10 | come la NBA; ESPN, nessuna protezione |
 
 Per installarli a mano (senza `deploy.sh`):
 
 ```bash
 sudo cp /opt/palla-a-due/app/systemd/palla-a-due-sync@* /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now palla-a-due-sync@{lnp-a2,lnp-b,lba,euroleague,nba}.timer
+sudo systemctl enable --now palla-a-due-sync@{lnp-a2,lnp-b,lba,euroleague,nba,wnba}.timer
 systemctl list-timers 'palla-a-due-*'                 # prossime esecuzioni
 sudo systemctl start palla-a-due-sync@lnp-a2.service   # esecuzione manuale
 journalctl -u 'palla-a-due-sync@lnp-a2.service' -n 100 --no-pager

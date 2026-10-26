@@ -1,4 +1,4 @@
-export type LeagueId = 'lba' | 'a2' | 'b' | 'euroleague' | 'eurocup' | 'nba';
+export type LeagueId = 'lba' | 'a2' | 'b' | 'euroleague' | 'eurocup' | 'nba' | 'wnba';
 
 /** Raggruppamento delle squadre in classifica all'interno di un'unica competizione (le conference NBA): `teamCodes` sono i `TeamRef.code`. */
 export interface Conference {
@@ -33,6 +33,7 @@ export const DEFAULT_LEAGUE: LeagueId = 'lba';
 export const LEAGUES: LeagueInfo[] = [
   { id: 'lba', label: 'LBA', title: 'LEGA BASKET SERIE A', playoffSpots: 8, relegationSpots: 2 },
   { id: 'nba', label: 'NBA', title: 'NBA', playoffSpots: 6, playInSpots: 4, relegationSpots: 0, byWinPercentage: true, conferences: NBA_CONFERENCES },
+  { id: 'wnba', label: 'WNBA', title: 'WNBA', playoffSpots: 8, relegationSpots: 0, byWinPercentage: true },
   { id: 'a2', label: 'SERIE A2', title: 'SERIE A2 · LNP', playoffSpots: 0, relegationSpots: 0 },
   { id: 'b', label: 'SERIE B', title: 'SERIE B NAZIONALE · LNP', playoffSpots: 0, relegationSpots: 0 },
   { id: 'euroleague', label: 'EUROLEAGUE', title: 'EUROLEAGUE', playoffSpots: 6, relegationSpots: 0 },

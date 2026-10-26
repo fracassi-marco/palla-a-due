@@ -1,6 +1,6 @@
 # Palla a Due 🏀
 
-App Expo (iOS/Android) con classifica, prossime partite, roster e statistiche dei giocatori di LBA, Serie A2, Serie B Nazionale, EuroLeague, EuroCup e NBA
+App Expo (iOS/Android) con classifica, prossime partite, roster e statistiche dei giocatori di LBA, Serie A2, Serie B Nazionale, EuroLeague, EuroCup, NBA e WNBA
 (si sceglie dalla home; la LBA è il predefinito).
 
 ## Avvio
@@ -126,6 +126,8 @@ EuroLeague ed EuroCup usano `EuroleagueLeagueSource` sull'API ufficiale di Eurol
 
 La NBA usa `NbaLeagueSource` sul CDN ufficiale `cdn.nba.com` (calendario, box score in diretta, giocatori); le giornate sono le settimane.
 Dettagli, intestazioni richieste e limiti in `docs/api-nba.md`.
+
+La WNBA usa `WnbaLeagueSource` su ESPN (tabellone, riepilogo partita, roster); le giornate sono le settimane. Dettagli in `docs/api-wnba.md`.
 
 Se una fonte si guasta l'app passa a un backup (EuroLeague v1 per le coppe, TheSportsDB per i risultati di LBA e A2, ESPN per calendario e
 punteggi della NBA); fonti,
