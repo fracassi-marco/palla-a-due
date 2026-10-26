@@ -121,7 +121,7 @@ export class SyncLeague {
 
   /**
    * Aggiorna una partita: giornata (se serve) e box score (se non è già definitivo).
-   * Con `force` la giornata viene riscaricata anche se ancora valida: serve al polling live.
+   * Con `force` la giornata viene riscaricata anche se ancora valida o già conclusa: serve al polling live.
    * Il box score di una partita live non viene salvato (le statistiche contano solo a partita conclusa):
    * è restituito, perché la schermata lo mostri. Per le altre partite il risultato è null.
    */
@@ -129,13 +129,17 @@ export class SyncLeague {
     let info = await this.store.getMatchSyncInfo(matchId);
     if (!info) return null;
 
-    if (info.status !== 'finished') {
-      const days = await this.store.getDaySyncStates(info.competitionId);
-      if (force || dayIsStale(days.find((d) => d.dayNumber === info!.dayNumber), Date.now())) {
-        await this.fetchDay(info.competitionId, info.dayNumber);
-        info = await this.store.getMatchSyncInfo(matchId);
-        if (!info) return null;
-      }
+    // Una partita conclusa si riscarica solo se forzato (ultimo refresh del polling live, per il punteggio finale).
+    const needsDay = async () => {
+      if (force) return true;
+      if (info!.status === 'finished') return false;
+      const days = await this.store.getDaySyncStates(info!.competitionId);
+      return dayIsStale(days.find((d) => d.dayNumber === info!.dayNumber), Date.now());
+    };
+    if (await needsDay()) {
+      await this.fetchDay(info.competitionId, info.dayNumber);
+      info = await this.store.getMatchSyncInfo(matchId);
+      if (!info) return null;
     }
 
     let live: BoxScore | null = null;

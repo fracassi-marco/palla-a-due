@@ -71,9 +71,12 @@ export default function MatchScreen() {
     if (!played && startsAt.getTime() - Date.now() > PRE_GAME_WINDOW_MS) return;
     refresh(true);
   }, [refresh, played, startsAt]);
-  usePolling(refreshLive, status !== 'finished', LIVE_REFRESH_MS);
+  // Quando la partita risulta conclusa si fa un ultimo refresh forzato: il punteggio finale può correggersi subito dopo.
+  usePolling(refreshLive, status !== 'finished', LIVE_REFRESH_MS, true);
   // Alla fine della partita le statistiche live restano a schermo finché non sono state rilette dal database.
-  const stats = (boxScore.data ?? liveBox)?.[side];
+  // Il database restituisce un box score vuoto finché non è stato scaricato: in quel caso vale quello live.
+  const stored = boxScore.data && Object.keys(boxScore.data[side]).length > 0 ? boxScore.data : null;
+  const stats = (stored ?? liveBox)?.[side];
 
   const share = () =>
     void shareMatch({ homeName: p.homeName, awayName: p.awayName, homeScore, awayScore, status, startsAt }).catch(() => {});
