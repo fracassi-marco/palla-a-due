@@ -142,13 +142,17 @@ export class SyncLeague {
       if (!info) return null;
     }
 
+    // La giornata è già salvata: se il box score fallisce, le schermate devono comunque rileggere punteggio e stato.
     let live: BoxScore | null = null;
-    if (info.status === 'live') {
-      live = toBoxScore(await withRetry(() => this.source.getBoxScore(info!.id)));
-    } else if (info.status === 'finished' && !info.boxScoreFinal) {
-      await this.fetchBoxScore(info);
+    try {
+      if (info.status === 'live') {
+        live = toBoxScore(await withRetry(() => this.source.getBoxScore(info!.id)));
+      } else if (info.status === 'finished' && !info.boxScoreFinal) {
+        await this.fetchBoxScore(info);
+      }
+    } finally {
+      this.notify(true);
     }
-    this.notify(true);
     return live;
   }
 

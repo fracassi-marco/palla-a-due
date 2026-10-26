@@ -2,6 +2,7 @@ import { currentSeasonYear } from '../../application/season';
 import { Competition, Match, MatchBoxScore, MatchStatus, Roster } from '../../domain/entities';
 import { LeagueSource } from '../../domain/ports';
 import { HttpClient } from '../api/HttpClient';
+import { TtlCache } from '../wnba/TtlCache';
 import { BoxScoreDto, PlayerIndexDto, ScheduleDto, ScheduleGameDto, ScoreboardDto, ScoreboardGameDto } from './dto';
 import { competitionId, decodeMatchId, gameCode } from './ids';
 import { gameDate, STATUSES, toBoxScoreSide, toMatch, toPlayer, toTeamRef } from './mappers';
@@ -34,6 +35,8 @@ export const NBA_HEADERS: Record<string, string> = {
  */
 const SCHEDULE_TTL_MS = 2 * 60_000;
 const SCOREBOARD_TTL_MS = 10_000;
+/** Il box score di una partita in corso è più aggiornato del tabellone del giorno, che può restare indietro di minuti. */
+const LIVE_BOX_TTL_MS = 10_000;
 /** L'anagrafica dei giocatori (280 KB) cambia solo con le firme e i tagli. */
 const PLAYER_INDEX_TTL_MS = 60 * 60_000;
 const HOUR_MS = 60 * 60_000;
@@ -87,6 +90,7 @@ export class NbaLeagueSource implements LeagueSource {
   private schedule: Cached<ScheduleGameDto[]> & { year: number } | null = null;
   private scoreboard: Cached<Map<string, ScoreboardGameDto>> | null = null;
   private players: Cached<Record<string, string | number | null>[]> | null = null;
+  private readonly boxes = new TtlCache<BoxScoreDto>(LIVE_BOX_TTL_MS);
 
   constructor(private readonly http: HttpClient) {}
 
@@ -100,6 +104,7 @@ export class NbaLeagueSource implements LeagueSource {
     const seasonYear = 2000 + Math.floor(competition / 10);
     const day = (await this.regularSeasonGames(seasonYear)).filter((g) => weekOf(seasonYear, gameDate(g)) === dayNumber);
     const live = await this.liveGames(day);
+    await this.refreshFromBoxScores(day, live);
     return day.map((game) => {
       const home = nbaTeamById(game.homeTeam.teamId)!;
       const away = nbaTeamById(game.awayTeam.teamId)!;
@@ -132,7 +137,7 @@ export class NbaLeagueSource implements LeagueSource {
     const live = (await this.liveGames([game])).get(game.gameId);
     if (this.statusOf(game, live) === 'scheduled') return EMPTY_BOX;
 
-    const dto = await this.http.get<BoxScoreDto>(`${CDN_URL}/liveData/boxscore/boxscore_${game.gameId}.json`);
+    const dto = await this.box(game.gameId);
     return { home: toBoxScoreSide(dto.game.homeTeam), away: toBoxScoreSide(dto.game.awayTeam) };
   }
 
@@ -143,6 +148,33 @@ export class NbaLeagueSource implements LeagueSource {
     const team = toTeamRef(nbaTeam);
     const rows = (await this.playerIndex()).filter((row) => row.TEAM_ID === teamId && !row.IS_DEFUNCT);
     return { team, coach: null, players: rows.map((row) => toPlayer(row, team)) };
+  }
+
+  private box(gameId: string): Promise<BoxScoreDto> {
+    return this.boxes.get(gameId, () => this.http.get<BoxScoreDto>(`${CDN_URL}/liveData/boxscore/boxscore_${gameId}.json`));
+  }
+
+  /** Per le partite in corso punteggio, periodo e orologio vengono dal box score; se non risponde resta il tabellone. */
+  private async refreshFromBoxScores(games: ScheduleGameDto[], live: Map<string, ScoreboardGameDto>): Promise<void> {
+    await Promise.all(
+      games
+        .filter((g) => this.statusOf(g, live.get(g.gameId)) === 'live')
+        .map(async (g) => {
+          try {
+            const { game } = await this.box(g.gameId);
+            live.set(g.gameId, {
+              gameId: g.gameId,
+              gameStatus: Math.max(game.gameStatus, live.get(g.gameId)?.gameStatus ?? 0),
+              period: game.period,
+              gameClock: game.gameClock,
+              homeTeam: { score: game.homeTeam.score },
+              awayTeam: { score: game.awayTeam.score },
+            });
+          } catch {
+            // si resta sui dati del tabellone
+          }
+        }),
+    );
   }
 
   private statusOf(game: ScheduleGameDto, update?: ScoreboardGameDto): MatchStatus {

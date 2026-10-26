@@ -79,7 +79,13 @@ export interface BoxScoreTeamDto {
 }
 
 export interface BoxScoreDto {
-  game: { homeTeam: BoxScoreTeamDto; awayTeam: BoxScoreTeamDto };
+  game: {
+    gameStatus: number;
+    period: number;
+    gameClock: string;
+    homeTeam: BoxScoreTeamDto & { score: number };
+    awayTeam: BoxScoreTeamDto & { score: number };
+  };
 }
 
 /** `playerindex`: una riga per giocatore, colonne in `headers`. */
