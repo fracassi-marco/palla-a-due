@@ -48,7 +48,8 @@ const DATABASE_NAMES: Record<LeagueId, string> = {
   euroleague: 'pallaadue-euroleague.db',
   eurocup: 'pallaadue-eurocup.db',
   nba: 'pallaadue-nba.db',
-  wnba: 'pallaadue-wnba.db',
+  // Gli id di partite, squadre e giocatori sono cambiati passando dalla fonte ESPN a quella ufficiale: un database nuovo.
+  wnba: 'pallaadue-wnba-v2.db',
 };
 
 /**

@@ -24,6 +24,7 @@ e con `fetch` di Node: passa solo con un `User-Agent` di Chrome **e** `Accept-La
 sono in `NBA_HEADERS` e `FetchHttpClient` le aggiunge a ogni richiesta. **Non è stato provato da un dispositivo**: React Native
 (NSURLSession su iOS, OkHttp su Android) potrebbe ignorare o riscrivere qualche intestazione, e Akamai può cambiare le regole in
 qualunque momento. In quel caso ogni richiesta fallisce con 403 e interviene il backup ESPN (calendario e punteggi, non box score e roster).
+Gli stessi header servono per `cdn.wnba.com` (WNBA, vedi `docs/api-wnba.md`), che ha le stesse regole; le foto (`cdn.wnba.com/headshots/…`) invece non li richiedono.
 Gli URL col dominio `stats.nba.com` (classifica, roster con allenatore, box score alternativo) non rispondono a curl (timeout) e non sono usati.
 
 ## Id numerici

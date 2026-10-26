@@ -27,9 +27,13 @@ const NBA_HEADERS = {
   'sec-fetch-site': 'same-site',
   'sec-ch-ua': '"Chromium";v="126"',
 };
-// WNBA: ESPN, senza protezioni. Le chiavi hanno il suffisso `?wnba` (vedi `logoUrl` in src/infrastructure/wnba/mappers.ts) per non
-// coincidere con quelle NBA (`atl.png`); nel nome del file il `?` diventa `@`.
-const WNBA_API = 'https://site.api.espn.com/apis/site/v2/sports/basketball/wnba';
+// WNBA: l'anagrafica sta nel CDN ufficiale della WNBA (stessi controlli sul client della NBA, quindi NBA_HEADERS); i logo sono quelli
+// di ESPN, le foto del CDN WNBA. Le chiavi hanno il suffisso `?wnba` (vedi `logoUrl` in src/infrastructure/wnba/teams.ts e `headshotUrl`
+// in src/infrastructure/wnba/mappers.ts) per non coincidere con quelle NBA (`atl.png`); nel nome del file il `?` diventa `@`.
+const WNBA_PLAYER_INDEX = 'https://cdn.wnba.com/static/json/staticData/playerIndex.json';
+const WNBA_HEADSHOT = 'https://cdn.wnba.com/headshots/wnba/latest/1040x760';
+// Sigla ESPN delle squadre il cui logo non ha il nome della sigla ufficiale (gli altri usano la sigla in minuscolo).
+const WNBA_ESPN_CODES = { GSV: 'gs', LAS: 'la', LVA: 'lv', NYL: 'ny', PDX: 'por', WAS: 'wsh' };
 const NBA_HEADSHOT = 'https://cdn.nba.com/headshots/nba/latest/1040x760';
 // Gli id delle squadre NBA vanno da 1610612737 a 1610612766: i giocatori svincolati hanno TEAM_ID 0.
 const NBA_TEAM_ID = /^16106127[3-6]\d$/;
@@ -225,20 +229,20 @@ for (const [list, league] of LNP_TEAM_LISTS) {
   console.log(`NBA: ${logos.size} squadre, ${playerSources.nba.size} giocatori`);
 }
 
-// WNBA: logo di ogni squadra e foto dei giocatori dei roster.
+// WNBA: logo di ogni squadra e foto di tutti i giocatori dell'anagrafica con una squadra.
 {
-  const getEspn = async (endpoint) => {
-    const res = await fetch(`${WNBA_API}${endpoint}`);
-    if (!res.ok) throw new Error(`WNBA ${endpoint} ${res.status}`);
-    return res.json();
-  };
-  const { sports } = await getEspn('/teams');
-  for (const { team } of sports[0].leagues[0].teams) {
-    const code = team.abbreviation.toLowerCase();
+  const res = await fetch(WNBA_PLAYER_INDEX, { headers: NBA_HEADERS });
+  if (!res.ok) throw new Error(`WNBA playerIndex ${res.status}`);
+  const { headers, rowSet } = (await res.json()).resultSets[0];
+  const col = (name) => headers.indexOf(name);
+  for (const row of rowSet) {
+    // I giocatori svincolati hanno TEAM_ID 0.
+    if (Number(row[col('TEAM_ID')]) <= 0) continue;
+    const id = row[col('PERSON_ID')];
+    playerSources.wnba.set(`${id}.png?wnba`, `${WNBA_HEADSHOT}/${id}.png`);
+    const tricode = row[col('TEAM_ABBREVIATION')];
+    const code = WNBA_ESPN_CODES[tricode] ?? tricode.toLowerCase();
     teamSources.wnba.set(`${code}.png?wnba`, `https://a.espncdn.com/i/teamlogos/wnba/500/${code}.png`);
-    for (const athlete of (await getEspn(`/teams/${team.id}/roster`)).athletes) {
-      playerSources.wnba.set(`${athlete.id}.png?wnba`, `https://a.espncdn.com/i/headshots/wnba/players/full/${athlete.id}.png`);
-    }
   }
   console.log(`WNBA: ${teamSources.wnba.size} squadre, ${playerSources.wnba.size} giocatori`);
 }

@@ -138,6 +138,10 @@ LBA, LNP ed Euroleague e quelli delle stagioni non devono mescolarsi. Li creano 
 esecuzione (`migrate.ts` della app); la modalità WAL permette ai cron di scrivere mentre l'API legge, e avere un file
 per campionato evita che i timer si contendano la scrittura.
 
+**WNBA, passaggio alla fonte ufficiale**: gli id di partite, squadre e giocatrici non sono più quelli di ESPN. Prima della prima
+sincronizzazione col codice nuovo cancella il vecchio database (`sudo systemctl stop palla-a-due-api; sudo rm /var/lib/palla-a-due/wnba.db*;
+sudo systemctl start palla-a-due-api`) e lancia `palla-a-due-sync@wnba.service`: altrimenti la stagione 2026 avrebbe ogni partita due volte.
+
 ### Variabili d'ambiente
 
 Le variabili d'ambiente sono la configurazione del server (percorso del database, ambiente, URL dei ping di
@@ -259,7 +263,7 @@ Orari consigliati (ora italiana, dopo la fine delle partite del giorno prima):
 | LBA | `lba` | 08:00 | |
 | EuroLeague / EuroCup | `euroleague` | 08:15 | sincronizza prima EuroLeague, poi EuroCup (pausa di 90 s: stesso host) |
 | NBA | `nba` | 11:00 | le partite finiscono verso le 6 in Italia |
-| WNBA | `wnba` | 11:10 | come la NBA; ESPN, nessuna protezione |
+| WNBA | `wnba` | 11:10 | come la NBA; CDN ufficiale con gli stessi header da browser, backup ESPN |
 
 Per installarli a mano (senza `deploy.sh`):
 

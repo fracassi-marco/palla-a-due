@@ -43,6 +43,22 @@ Non vedere nessuna riga è normale quando il database del campionato è già agg
 che è scaduto. Per forzare le chiamate seleziona un campionato mai sincronizzato (es. EuroLeague). Le immagini caricate da
 `expo-image` non passano da qui e non vengono registrate.
 
+## Immagini di squadre e giocatori
+
+Loghi e foto di LBA, Serie A2, Serie B, NBA e WNBA sono incluse nell'app (WebP in `assets/images/{teams,players}/<campionato>/`) e
+registrate nel manifest `src/infrastructure/images/manifest.ts`, che è generato: non va modificato a mano. Quelle che non ci sono
+(per esempio un giocatore firmato dopo l'ultimo giro) si caricano dall'URL remoto. Per aggiornarle serve `cwebp`:
+
+```bash
+brew install webp                            # una volta sola
+node scripts/download-images.mjs --check     # elenca le immagini mancanti, senza scaricare né scrivere nulla
+node scripts/download-images.mjs             # scarica solo le nuove e rigenera il manifest
+node scripts/download-images.mjs 2025        # stagione LBA diversa da quella in corso (anno di inizio)
+```
+
+Poi si versionano le immagini nuove e il manifest (`git add assets/images src/infrastructure/images/manifest.ts`). Le immagini già
+presenti non vengono scaricate di nuovo.
+
 ## Sito (GitHub Pages)
 
 Il sito vetrina è una pagina statica in `site/` (HTML e CSS, nessuna build): `index.html`, `privacy.html`, `termini.html`
@@ -127,7 +143,7 @@ EuroLeague ed EuroCup usano `EuroleagueLeagueSource` sull'API ufficiale di Eurol
 La NBA usa `NbaLeagueSource` sul CDN ufficiale `cdn.nba.com` (calendario, box score in diretta, giocatori); le giornate sono le settimane.
 Dettagli, intestazioni richieste e limiti in `docs/api-nba.md`.
 
-La WNBA usa `WnbaLeagueSource` su ESPN (tabellone, riepilogo partita, roster); le giornate sono le settimane. Dettagli in `docs/api-wnba.md`.
+La WNBA usa `WnbaLeagueSource` sul CDN ufficiale `cdn.wnba.com` (stessi file e stesse intestazioni da browser della NBA); le giornate sono le settimane. Dettagli in `docs/api-wnba.md`.
 
 Se una fonte si guasta l'app passa a un backup (EuroLeague v1 per le coppe, TheSportsDB per i risultati di LBA e A2, ESPN per calendario e
 punteggi della NBA); fonti,

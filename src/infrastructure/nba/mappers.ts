@@ -94,21 +94,22 @@ function toGameStats(s: StatisticsDto): GameStats {
 
 export const headshotUrl = (personId: number) => `https://cdn.nba.com/headshots/nba/latest/260x190/${personId}.png`;
 
-function toBoxScorePlayer(p: BoxScorePlayerDto): BoxScorePlayer {
+function toBoxScorePlayer(p: BoxScorePlayerDto, photoUrl: (personId: number) => string): BoxScorePlayer {
   return {
     id: p.personId,
     firstName: p.firstName,
     lastName: p.familyName,
     number: p.jerseyNum || '-',
-    photoUrl: headshotUrl(p.personId),
+    photoUrl: photoUrl(p.personId),
     starter: p.starter === '1',
     plusMinus: p.statistics.plusMinusPoints ?? 0,
     stats: toGameStats(p.statistics),
   };
 }
 
-export function toBoxScoreSide(team: BoxScoreTeamDto): BoxScoreSide {
-  return { players: team.players.map(toBoxScorePlayer), totals: toGameStats(team.statistics) };
+/** `photoUrl`: la WNBA, che ha lo stesso formato di dati, ha le foto su un altro percorso. */
+export function toBoxScoreSide(team: BoxScoreTeamDto, photoUrl = headshotUrl): BoxScoreSide {
+  return { players: team.players.map((p) => toBoxScorePlayer(p, photoUrl)), totals: toGameStats(team.statistics) };
 }
 
 const ROLES: Record<string, string> = { G: 'Guardia', F: 'Ala', C: 'Centro' };
@@ -125,7 +126,7 @@ function heightCm(height: string | null): number | null {
 const weightKg = (pounds: string | null) => (Number(pounds) > 0 ? Math.round(Number(pounds) * KG_PER_POUND) : null);
 
 /** Riga di `playerindex` (colonne in `headers`) → giocatore della squadra. */
-export function toPlayer(row: Record<string, string | number | null>, team: TeamRef): Player {
+export function toPlayer(row: Record<string, string | number | null>, team: TeamRef, photoUrl = headshotUrl): Player {
   const id = Number(row.PERSON_ID);
   return {
     id,
@@ -138,7 +139,7 @@ export function toPlayer(row: Record<string, string | number | null>, team: Team
     birthPlace: null,
     heightCm: heightCm(row.HEIGHT as string | null),
     weightKg: weightKg(row.WEIGHT as string | null),
-    photoUrl: headshotUrl(id),
+    photoUrl: photoUrl(id),
     teamId: team.id,
     teamName: team.name,
   };
