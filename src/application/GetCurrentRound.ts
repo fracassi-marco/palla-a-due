@@ -1,11 +1,11 @@
 import { Match } from '../domain/entities';
 import { CompetitionRepository, MatchRepository } from '../domain/ports';
+import { nextRomeNoon } from '../domain/romeTime';
 import { currentSeasonYear } from './season';
 
 const HOURS = 60 * 60 * 1000;
 /** L'API non espone la fine della partita: la stimiamo dalla palla a due. */
 const MATCH_DURATION_MS = 2 * HOURS;
-const RECENT_ROUND_WINDOW_MS = 48 * HOURS;
 const MAX_DAYS_LOOKAHEAD = 3;
 
 export class GetCurrentRound {
@@ -18,12 +18,12 @@ export class GetCurrentRound {
   async execute(now: Date = new Date()): Promise<Match[]> {
     const competitions = await this.competitions.getSeasonCompetitions(currentSeasonYear(now));
     const rounds = await Promise.all(competitions.map((c) => this.competitionRound(c.id, now)));
-    return sortByStart(rounds.flat());
+    return sortForDisplay(rounds.flat());
   }
 
   /**
-   * Partite della giornata da mostrare: quella in corso o conclusa da meno di 48 ore
-   * (calcolate sull'ultima partita della giornata), altrimenti la prossima.
+   * Partite della giornata da mostrare: quella in corso o conclusa che resta in vista fino al
+   * mezzogiorno italiano successivo all'ultima partita, altrimenti la prossima.
    */
   private async competitionRound(competitionId: number, now: Date): Promise<Match[]> {
     const focus = await this.matches.getCurrentDayMatches(competitionId, now);
@@ -49,8 +49,19 @@ export class GetCurrentRound {
       return true;
     }
     const lastStart = Math.max(...round.map((m) => m.startsAt.getTime()));
-    return now.getTime() - (lastStart + MATCH_DURATION_MS) < RECENT_ROUND_WINDOW_MS;
+    return now < nextRomeNoon(new Date(lastStart + MATCH_DURATION_MS));
   }
+}
+
+const STATUS_ORDER = { live: 0, scheduled: 1, finished: 2 } as const;
+
+/** Prima le live, poi le prossime (la più vicina per prima), infine le concluse (la più recente per prima). */
+function sortForDisplay(matches: Match[]): Match[] {
+  return [...matches].sort((a, b) => {
+    if (a.status !== b.status) return STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
+    const diff = a.startsAt.getTime() - b.startsAt.getTime();
+    return a.status === 'finished' ? -diff : diff;
+  });
 }
 
 const sortByStart = (round: Match[]) => [...round].sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
