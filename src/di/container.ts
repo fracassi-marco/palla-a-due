@@ -1,6 +1,7 @@
 import { GetCalendar } from '../application/GetCalendar';
 import { GetCurrentRound } from '../application/GetCurrentRound';
 import { GetLeagueRanking } from '../application/GetLeagueRanking';
+import { GetHeadToHead } from '../application/GetHeadToHead';
 import { GetMatch } from '../application/GetMatch';
 import { GetMatchBoxScore } from '../application/GetMatchBoxScore';
 import { GetPlayerProfile } from '../application/GetPlayerProfile';
@@ -78,6 +79,7 @@ function createUseCases(league: LeagueId) {
     getCurrentRound,
     getCalendar: new GetCalendar(competitions, matches, standings, getCurrentRound),
     getMatch: new GetMatch(competitions, matches),
+    getHeadToHead: new GetHeadToHead(matches),
     getMatchBoxScore: new GetMatchBoxScore(matches),
     getTeamRoster: new GetTeamRoster(teams),
     getTeamStats: new GetTeamStats(teams, competitions, standings),

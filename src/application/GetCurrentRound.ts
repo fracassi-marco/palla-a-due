@@ -1,6 +1,6 @@
 import { Match } from '../domain/entities';
 import { CompetitionRepository, MatchRepository } from '../domain/ports';
-import { nextRomeNoon } from '../domain/romeTime';
+import { nextRomeNoon, romeGameNight } from '../domain/romeTime';
 import { currentSeasonYear } from './season';
 
 const HOURS = 60 * 60 * 1000;
@@ -17,8 +17,14 @@ export class GetCurrentRound {
   /** Partite da mostrare: la giornata corrente di ogni competizione (una sola, tranne che con i gironi). */
   async execute(now: Date = new Date()): Promise<Match[]> {
     const competitions = await this.competitions.getSeasonCompetitions(currentSeasonYear(now));
-    const rounds = await Promise.all(competitions.map((c) => this.competitionRound(c.id, now)));
-    return sortForDisplay(rounds.flat());
+    const rounds = await Promise.all(
+      competitions.map(async (c) => {
+        const round = await this.competitionRound(c.id, now);
+        // Le "giornate" settimanali (NBA) hanno troppe partite per il carosello: ne teniamo solo due serate.
+        return c.totalDays ? latestAndNextNight(round) : round;
+      }),
+    );
+    return sortByStart(rounds.flat());
   }
 
   /**
@@ -53,15 +59,17 @@ export class GetCurrentRound {
   }
 }
 
-const STATUS_ORDER = { live: 0, scheduled: 1, finished: 2 } as const;
-
-/** Prima le live, poi le prossime (la più vicina per prima), infine le concluse (la più recente per prima). */
-function sortForDisplay(matches: Match[]): Match[] {
-  return [...matches].sort((a, b) => {
-    if (a.status !== b.status) return STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
-    const diff = a.startsAt.getTime() - b.startsAt.getTime();
-    return a.status === 'finished' ? -diff : diff;
-  });
+/** Delle partite di una settimana: le live, le concluse dell'ultima serata giocata e le future della prossima. */
+function latestAndNextNight(round: Match[]): Match[] {
+  const nights = (status: Match['status']) => round.filter((m) => m.status === status).map((m) => romeGameNight(m.startsAt));
+  const lastFinished = nights('finished').sort().at(-1);
+  const nextScheduled = nights('scheduled').sort()[0];
+  return round.filter(
+    (m) =>
+      m.status === 'live' ||
+      (m.status === 'finished' && romeGameNight(m.startsAt) === lastFinished) ||
+      (m.status === 'scheduled' && romeGameNight(m.startsAt) === nextScheduled),
+  );
 }
 
 const sortByStart = (round: Match[]) => [...round].sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());

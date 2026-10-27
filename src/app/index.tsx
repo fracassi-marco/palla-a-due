@@ -13,6 +13,8 @@ import { SectionTitle } from '../presentation/components/SectionTitle';
 import { Empty, ErrorView, Loading } from '../presentation/components/StateViews';
 import { StandingsTable } from '../presentation/components/StandingsTable';
 import { RANKING_STATS } from '../presentation/rankingStats';
+import { useShareImage } from '../presentation/hooks/useShareImage';
+import { StandingsShareCard } from '../presentation/share/StandingsShareCard';
 import { useOpenMatch } from '../presentation/hooks/useOpenMatch';
 import { favoriteFirst, favoriteGroupFirst } from '../domain/favoriteFirst';
 import { useFavoriteTeamId } from '../presentation/hooks/useFavoriteTeam';
@@ -66,6 +68,7 @@ function Home() {
   const hasLive = matches.data?.some((m) => m.status === 'live') ?? false;
   usePolling(() => void useCases.sync.start({ minIntervalMs: LIVE_SYNC_MS / 2 }), hasLive, LIVE_SYNC_MS);
 
+  const shareImage = useShareImage('Condividi la classifica');
   const openMatch = useOpenMatch();
   const favoriteId = useFavoriteTeamId();
   const roundMatches = useMemo(() => favoriteFirst(matches.data ?? [], favoriteId), [matches.data, favoriteId]);
@@ -74,6 +77,7 @@ function Home() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
+      {shareImage.host}
       <ScrollView
         contentContainerStyle={{ paddingBottom: 40 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={reloadAll} tintColor={colors.orange} />}
@@ -126,7 +130,26 @@ function Home() {
           <>
             {standingsGroups.map((group) => (
               <View key={`${group.competitionId}:${group.name}`} style={styles.group}>
-                {standings.data!.length > 1 ? <Text style={styles.groupTitle}>{group.name.toUpperCase()}</Text> : null}
+                <View style={styles.groupHead}>
+                  <Text style={styles.groupTitle}>{standings.data!.length > 1 ? group.name.toUpperCase() : ''}</Text>
+                  <Pressable
+                    onPress={() =>
+                      shareImage.share(
+                        <StandingsShareCard
+                          leagueTitle={league.title}
+                          groupName={standings.data!.length > 1 ? group.name : null}
+                          standings={group.standings}
+                          byWinPercentage={league.byWinPercentage ?? false}
+                        />,
+                      )
+                    }
+                    disabled={shareImage.busy}
+                    hitSlop={12}
+                    accessibilityLabel="Condividi la classifica come immagine"
+                  >
+                    <Ionicons name="image-outline" size={22} color={shareImage.busy ? colors.textMuted : colors.orange} />
+                  </Pressable>
+                </View>
                 <StandingsTable standings={group.standings} byWinPercentage={league.byWinPercentage} />
               </View>
             ))}
@@ -183,7 +206,8 @@ const styles = StyleSheet.create({
   statIcon: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceAlt },
   statTitle: { flex: 1, flexShrink: 1, color: colors.text, fontFamily: fonts.condensed, fontSize: 16, letterSpacing: 0.8 },
   group: { gap: 8, marginBottom: 12 },
-  groupTitle: { color: colors.cyan, fontFamily: fonts.condensed, fontSize: 16, letterSpacing: 1.5, marginHorizontal: 16 },
+  groupHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: 16 },
+  groupTitle: { color: colors.cyan, fontFamily: fonts.condensed, fontSize: 16, letterSpacing: 1.5, flex: 1 },
   legend: { flexDirection: 'row', justifyContent: 'center', gap: 16, marginTop: 12 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   dot: { width: 10, height: 10, borderRadius: 5 },

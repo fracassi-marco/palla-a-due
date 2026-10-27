@@ -41,8 +41,6 @@ export const maxLines = (lines: StatLine[]) => reduceLines(lines, (v) => Math.ma
 interface RankRule {
   /** Valore da confrontare, dai totali stagionali; null se il giocatore non è classificabile. */
   value: (totals: StatLine) => number | null;
-  /** Se true, vale di più un valore più basso (palle perse). */
-  lowerIsBetter?: boolean;
 }
 
 const perGame = (field: keyof StatLine): RankRule => ({ value: (l) => l[field] / l.matches });
@@ -60,7 +58,7 @@ const RANK_RULES: Record<RankedStat, RankRule> = {
   rating: perGame('rating'),
   steals: perGame('steals'),
   blocks: perGame('blocks'),
-  turnovers: { ...perGame('turnovers'), lowerIsBetter: true },
+  turnovers: perGame('turnovers'),
   twoPercent: shooting('twoMade', 'twoAttempted'),
   threePercent: shooting('threeMade', 'threeAttempted'),
   freeThrowPercent: shooting('freeThrowsMade', 'freeThrowsAttempted'),
@@ -78,11 +76,10 @@ export function sortByStat<T extends { totals: StatLine }>(
   stat: RankedStat,
   items: T[],
 ): { position: number; value: number; item: T }[] {
-  const direction = RANK_RULES[stat].lowerIsBetter ? 1 : -1;
   const valued = items
     .map((item) => ({ item, value: rankValue(stat, item.totals) }))
     .filter((e): e is { item: T; value: number } => e.value !== null)
-    .sort((a, b) => direction * (a.value - b.value));
+    .sort((a, b) => b.value - a.value);
   let position = 0;
   return valued.map((e, i) => {
     if (i === 0 || e.value !== valued[i - 1].value) position = i + 1;
@@ -97,11 +94,11 @@ export function sortByStat<T extends { totals: StatLine }>(
 export function rankInLeague(own: StatLine, league: StatLine[]): LeagueRanks {
   const ranks: LeagueRanks = {};
   for (const stat of Object.keys(RANK_RULES) as RankedStat[]) {
-    const { value, lowerIsBetter } = RANK_RULES[stat];
+    const { value } = RANK_RULES[stat];
     const ownValue = value(own);
     if (ownValue === null) continue;
     const values = league.map(value).filter((v): v is number => v !== null);
-    const better = values.filter((v) => (lowerIsBetter ? v < ownValue : v > ownValue)).length;
+    const better = values.filter((v) => v > ownValue).length;
     ranks[stat] = { position: better + 1, of: values.length };
   }
   return ranks;

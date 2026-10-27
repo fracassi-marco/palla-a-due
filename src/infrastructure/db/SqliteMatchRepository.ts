@@ -38,6 +38,17 @@ export class SqliteMatchRepository implements MatchRepository {
     return rows.map(toMatch);
   }
 
+  async getHeadToHead(teamAId: number, teamBId: number, excludeMatchId: number, limit: number): Promise<Match[]> {
+    const rows = await this.db.getAllAsync<MatchRow>(
+      `${MATCH_SELECT}
+       WHERE m.status = 'finished' AND m.id != ? AND m.home_score IS NOT NULL AND m.away_score IS NOT NULL
+         AND ((m.home_team_id = ? AND m.away_team_id = ?) OR (m.home_team_id = ? AND m.away_team_id = ?))
+       ORDER BY m.starts_at DESC, m.id DESC LIMIT ?`,
+      [excludeMatchId, teamAId, teamBId, teamBId, teamAId, limit],
+    );
+    return rows.map(toMatch);
+  }
+
   async getBoxScore(matchId: number): Promise<BoxScore> {
     const rows = await this.db.getAllAsync<GameStatsRow & { player_id: number; is_home: number }>(
       `SELECT pg.*, CASE WHEN pg.team_id = m.home_team_id THEN 1 ELSE 0 END AS is_home

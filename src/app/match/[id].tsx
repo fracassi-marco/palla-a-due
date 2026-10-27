@@ -4,13 +4,19 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useCases } from '../../di/container';
 import { BoxScore, MatchStatus, Roster, StatLine } from '../../domain/entities';
+import { leagueInfo } from '../../domain/League';
+import { HeadToHeadSection } from '../../presentation/components/HeadToHeadSection';
 import { PlayerRow } from '../../presentation/components/PlayerRow';
 import { Empty, ErrorView, Loading } from '../../presentation/components/StateViews';
 import { TeamLogo } from '../../presentation/components/TeamLogo';
+import { useLeague } from '../../presentation/hooks/useLeague';
+import { useOpenMatch } from '../../presentation/hooks/useOpenMatch';
+import { useShareImage } from '../../presentation/hooks/useShareImage';
 import { useOpenTeam } from '../../presentation/hooks/useOpenTeam';
 import { useAsync } from '../../presentation/hooks/useAsync';
 import { useDataVersion } from '../../presentation/hooks/useSync';
 import { usePolling } from '../../presentation/hooks/usePolling';
+import { MatchShareCard, Performer } from '../../presentation/share/MatchShareCard';
 import { shareMatch } from '../../presentation/shareMatch';
 import { colors, fonts, radius } from '../../presentation/theme';
 import { formatDayMonth, formatTime, formatWeekday } from '../../presentation/theme/format';
@@ -19,17 +25,25 @@ type Params = Record<'id' | 'day' | 'homeId' | 'awayId' | 'homeName' | 'awayName
 
 const LIVE_REFRESH_MS = 12_000;
 const PRE_GAME_WINDOW_MS = 30 * 60_000;
+const TOP_PERFORMERS = 3;
 
 export default function MatchScreen() {
   const p = useLocalSearchParams<Params>();
   const router = useRouter();
   const openTeam = useOpenTeam();
+  const openMatch = useOpenMatch();
+  const league = leagueInfo(useLeague());
+  const shareImage = useShareImage('Condividi la partita');
   const [side, setSide] = useState<'home' | 'away'>('home');
 
   const dataVersion = useDataVersion();
   const matchId = Number(p.id);
-  const teamId = Number(side === 'home' ? p.homeId : p.awayId);
-  const roster = useAsync(() => useCases.getTeamRoster.execute(teamId), [teamId, dataVersion]);
+  const homeId = Number(p.homeId);
+  const awayId = Number(p.awayId);
+  const homeRoster = useAsync(() => useCases.getTeamRoster.execute(homeId), [homeId, dataVersion]);
+  const awayRoster = useAsync(() => useCases.getTeamRoster.execute(awayId), [awayId, dataVersion]);
+  const roster = side === 'home' ? homeRoster : awayRoster;
+  const headToHead = useAsync(() => useCases.getHeadToHead.execute(homeId, awayId, matchId), [homeId, awayId, matchId, dataVersion]);
 
   const startsAt = useMemo(() => new Date(p.startsAt), [p.startsAt]);
   const dayNumber = Number(p.day);
@@ -75,23 +89,41 @@ export default function MatchScreen() {
   usePolling(refreshLive, status !== 'finished', LIVE_REFRESH_MS, true);
   // Alla fine della partita le statistiche live restano a schermo finché non sono state rilette dal database.
   // Il database restituisce un box score vuoto finché non è stato scaricato: in quel caso vale quello live.
-  const stored = boxScore.data && Object.keys(boxScore.data[side]).length > 0 ? boxScore.data : null;
-  const stats = (stored ?? liveBox)?.[side];
+  const stored = boxScore.data && (Object.keys(boxScore.data.home).length > 0 || Object.keys(boxScore.data.away).length > 0) ? boxScore.data : null;
+  const box = stored ?? liveBox;
+  const stats = box?.[side];
 
   const share = () =>
     void shareMatch({ homeName: p.homeName, awayName: p.awayName, homeScore, awayScore, status, startsAt }).catch(() => {});
+
+  const shareAsImage = () =>
+    shareImage.share(
+      <MatchShareCard
+        leagueTitle={league.title}
+        status={status}
+        startsAt={startsAt}
+        home={{ name: p.homeName, logo: p.homeLogo || null, score: homeScore, performers: topPerformers(homeRoster.data, box?.home) }}
+        away={{ name: p.awayName, logo: p.awayLogo || null, score: awayScore, performers: topPerformers(awayRoster.data, box?.away) }}
+      />,
+    );
 
   return (
     <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
       <Stack.Screen
         options={{
           headerRight: () => (
-            <Pressable onPress={share} hitSlop={12} accessibilityLabel="Condividi il risultato">
-              <Ionicons name="share-outline" size={24} color={colors.orange} />
-            </Pressable>
+            <View style={styles.headerActions}>
+              <Pressable onPress={shareAsImage} disabled={shareImage.busy} hitSlop={12} accessibilityLabel="Condividi come immagine">
+                <Ionicons name="image-outline" size={24} color={shareImage.busy ? colors.textMuted : colors.orange} />
+              </Pressable>
+              <Pressable onPress={share} hitSlop={12} accessibilityLabel="Condividi il risultato">
+                <Ionicons name="share-outline" size={24} color={colors.orange} />
+              </Pressable>
+            </View>
           ),
         }}
       />
+      {shareImage.host}
       <View style={styles.scoreboard}>
         <Pressable style={styles.team} onPress={() => openTeam(Number(p.homeId), p.homeName, p.homeLogo || null)}>
           <TeamLogo uri={p.homeLogo || null} name={p.homeName} size={72} />
@@ -125,8 +157,26 @@ export default function MatchScreen() {
       ) : roster.data ? (
         <RosterList roster={roster.data} stats={stats} onPlayer={(id) => router.push({ pathname: '/player/[id]', params: { id: String(id) } })} />
       ) : null}
+
+      {headToHead.data && headToHead.data.matches.length > 0 ? (
+        <HeadToHeadSection headToHead={headToHead.data} homeCode={homeRoster.data?.team.code ?? p.homeName} awayCode={awayRoster.data?.team.code ?? p.awayName} onMatch={openMatch} />
+      ) : null}
     </ScrollView>
   );
+}
+
+/** I migliori marcatori di una squadra in una partita, per la scheda da condividere. */
+function topPerformers(roster: Roster | null, stats?: Record<number, StatLine>): Performer[] {
+  if (!roster || !stats) return [];
+  return sortByPerformance(roster.players, stats)
+    .filter((pl) => stats[pl.id])
+    .slice(0, TOP_PERFORMERS)
+    .map((pl) => ({
+      name: `${pl.firstName.charAt(0)}. ${pl.lastName}`,
+      points: stats[pl.id].points,
+      rebounds: stats[pl.id].totalRebounds,
+      assists: stats[pl.id].assists,
+    }));
 }
 
 function RosterList({ roster, stats, onPlayer }: { roster: Roster; stats?: Record<number, StatLine>; onPlayer: (id: number) => void }) {
@@ -171,6 +221,7 @@ function Tab({ label, name, active, onPress }: { label: string; name: string; ac
 }
 
 const styles = StyleSheet.create({
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 18 },
   scoreboard: { flexDirection: 'row', alignItems: 'center', margin: 16, padding: 18, backgroundColor: colors.surface, borderRadius: 28, borderWidth: 2, borderColor: colors.orange },
   team: { flex: 1, alignItems: 'center', gap: 8 },
   teamName: { color: colors.text, fontFamily: fonts.bodyBold, fontSize: 13, textAlign: 'center' },
