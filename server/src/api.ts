@@ -12,10 +12,10 @@ import { createServer, IncomingMessage, ServerResponse } from 'node:http';
 import { join } from 'node:path';
 
 import { currentSeasonYear } from '../../src/application/season';
-import { createSource } from '../../src/di/createSource';
+import { createPlayoffSource, createSource } from '../../src/di/createSource';
 import { isLeagueId, LeagueId } from '../../src/domain/League';
-import { Match } from '../../src/domain/entities';
-import { LeagueSource } from '../../src/domain/ports';
+import { Match, PlayoffBracket } from '../../src/domain/entities';
+import { LeagueSource, PlayoffSource } from '../../src/domain/ports';
 import { HttpError } from '../../src/infrastructure/api/HttpClient';
 import { BetterSqliteDatabase } from './BetterSqliteDatabase';
 import { LeagueReader, Stored } from './LeagueReader';
@@ -48,6 +48,8 @@ class NotFound extends Error {}
 interface LeagueContext {
   reader: LeagueReader;
   source: LeagueSource;
+  /** Solo per i campionati con un tabellone playoff. */
+  playoffs: PlayoffSource | null;
 }
 
 const dir = process.env.DATABASE_DIR ?? (process.env.NODE_ENV === 'production' ? '' : './data');
@@ -61,7 +63,7 @@ function contextOf(league: LeagueId): LeagueContext {
   let context = contexts.get(league);
   if (!context) {
     const reader = new LeagueReader(new BetterSqliteDatabase(join(dir, `${league}.db`)));
-    context = { reader, source: createSource(league, reader.matchRepository) };
+    context = { reader, source: createSource(league, reader.matchRepository), playoffs: createPlayoffSource(league) };
     contexts.set(league, context);
   }
   return context;
@@ -125,6 +127,33 @@ async function roster(league: LeagueId, teamId: number): Promise<Payload<unknown
   return live(`${league}:roster:${teamId}`, STATIC_TTL_MS, () => source.getRoster(teamId), null);
 }
 
+/** Ultimo tabellone scaricato per campionato e stagione: dà la validità del prossimo e fa da copia se la sorgente non risponde. */
+const lastPlayoffs = new Map<string, Stored<PlayoffBracket | null>>();
+
+const hasLiveSeries = (bracket: PlayoffBracket | null) => bracket?.rounds.some((r) => r.series.some((s) => s?.live)) ?? false;
+/** Finale decisa: il tabellone non cambia più. */
+const isComplete = (bracket: PlayoffBracket | null) => bracket?.rounds.at(-1)?.series.every((s) => s?.winnerId != null) ?? false;
+
+async function playoffs(league: LeagueId, season: number): Promise<Payload<unknown>> {
+  const { playoffs: source } = contextOf(league);
+  if (!source) throw new NotFound(`Playoff non disponibili per ${league}`);
+
+  const key = `${league}:playoffs:${season}`;
+  const previous = lastPlayoffs.get(key) ?? null;
+  const last = previous?.value ?? null;
+  const ttl = isComplete(last) ? STATIC_TTL_MS : hasLiveSeries(last) ? LIVE_TTL_MS : PENDING_TTL_MS;
+  return live(
+    key,
+    ttl,
+    async () => {
+      const bracket = await source.getBracket(season);
+      lastPlayoffs.set(key, { value: bracket, fetchedAt: Date.now() });
+      return bracket;
+    },
+    previous,
+  );
+}
+
 const ID = '(\\d+)';
 const LEAGUE = '([a-z0-9]+)';
 
@@ -137,6 +166,10 @@ const ROUTES: { pattern: RegExp; handle: (params: string[], query: URLSearchPara
   {
     pattern: new RegExp(`^/v1/${LEAGUE}/competitions/${ID}/days/${ID}$`),
     handle: ([league, competition, dayNumber]) => day(leagueOf(league), Number(competition), Number(dayNumber)),
+  },
+  {
+    pattern: new RegExp(`^/v1/${LEAGUE}/playoffs$`),
+    handle: ([league], query) => playoffs(leagueOf(league), Number(query.get('season') ?? currentSeasonYear())),
   },
   {
     pattern: new RegExp(`^/v1/${LEAGUE}/matches/${ID}/box-score$`),
