@@ -35,6 +35,9 @@ stessa partita e i loro dati si mescolano nel database senza duplicati. `getBoxS
 
 ## Decisioni e limiti noti
 
+- **Tabellone playoff**: `/v1/nba/playoffs`, dal tabellone di ESPN (`nbaEspnPlayoffs`): primo turno (8 serie), semifinali (4) e finali (2) di conference, finale NBA, tutte al meglio delle 7; il play-in
+  (`season.type` 5) non c'è. ESPN indica la stagione con l'anno di fine (`dates=2026` per la 2025-26). Verificato sui playoff 2026. Il calendario ufficiale (`gameId` `004…`) ha le stesse informazioni della WNBA,
+  con le teste di serie, ma il file contiene solo la stagione in corso e non è stato verificato sui playoff NBA: quando saranno disponibili si può passare a `OfficialPlayoffSource` con ESPN come backup (come la WNBA).
 - Solo Regular Season: precampionato, play-in, playoff e le partite a eliminazione della NBA Cup (quarti, semifinali, finale: si
   riconoscono da `gameSubLabel`, hanno squadre da definire e non contano in classifica) sono scartati. Le partite del gruppo della NBA Cup contano.
 - Classifica calcolata dalle partite e ordinata per **percentuale di vittorie** (`LeagueInfo.byWinPercentage`: le squadre non hanno

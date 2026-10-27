@@ -21,6 +21,10 @@ export interface LeagueInfo {
   playInSpots?: number;
   /** Classifica divisa per conference; `playoffSpots` e `playInSpots` valgono per ciascuna. */
   conferences?: Conference[];
+  /** La app sa mostrare il tabellone dei playoff (vedi `PlayoffSource`). */
+  playoffBracket?: boolean;
+  /** Le "giornate" sono settimane con molte partite (NBA, WNBA): in home se ne tengono solo due serate invece dell'intera giornata. */
+  weeklyRounds?: boolean;
 }
 
 const NBA_CONFERENCES: Conference[] = [
@@ -32,12 +36,12 @@ export const DEFAULT_LEAGUE: LeagueId = 'lba';
 
 export const LEAGUES: LeagueInfo[] = [
   { id: 'lba', label: 'LBA', title: 'LEGA BASKET SERIE A', playoffSpots: 8, relegationSpots: 2 },
-  { id: 'nba', label: 'NBA', title: 'NBA', playoffSpots: 6, playInSpots: 4, relegationSpots: 0, byWinPercentage: true, conferences: NBA_CONFERENCES },
+  { id: 'nba', label: 'NBA', title: 'NBA', playoffSpots: 6, playInSpots: 4, relegationSpots: 0, byWinPercentage: true, conferences: NBA_CONFERENCES, playoffBracket: true, weeklyRounds: true },
   { id: 'a2', label: 'SERIE A2', title: 'SERIE A2 · LNP', playoffSpots: 0, relegationSpots: 0 },
   { id: 'b', label: 'SERIE B', title: 'SERIE B NAZIONALE · LNP', playoffSpots: 0, relegationSpots: 0 },
   { id: 'euroleague', label: 'EUROLEAGUE', title: 'EUROLEAGUE', playoffSpots: 6, relegationSpots: 0 },
   { id: 'eurocup', label: 'EUROCUP', title: 'EUROCUP', playoffSpots: 0, relegationSpots: 0 },
-  { id: 'wnba', label: 'WNBA', title: 'WNBA', playoffSpots: 8, relegationSpots: 0, byWinPercentage: true },
+  { id: 'wnba', label: 'WNBA', title: 'WNBA', playoffSpots: 8, relegationSpots: 0, byWinPercentage: true, playoffBracket: true, weeklyRounds: true },
 ];
 
 export const leagueInfo = (id: LeagueId): LeagueInfo => LEAGUES.find((l) => l.id === id) ?? LEAGUES[0];

@@ -17,6 +17,7 @@ Il perché è in `docs/backend.md`.
 | `/v1/{league}/competitions/{id}/days/{n}` | `Match[]` (le date sono ISO 8601) |
 | `/v1/{league}/matches/{id}/box-score` | `MatchBoxScore` |
 | `/v1/{league}/teams/{id}/roster` | `Roster` |
+| `/v1/{league}/playoffs?season=YYYY` | `PlayoffBracket` (turni con le serie; `null` prima dei playoff), solo per i campionati con tabellone (`nba`, `wnba`; con le teste di serie solo dove la fonte le dà: ora la WNBA): `404` per gli altri |
 
 I tipi sono quelli di `src/domain/entities`. Ogni risposta è `{ source: "db" | "live", updatedAt, data }`; errori: `404`
 (campionato o risorsa sconosciuti), `502` (sorgente non raggiungibile e niente nel database), `405`.
@@ -28,6 +29,7 @@ I tipi sono quelli di `src/domain/entities`. Ogni risposta è `{ source: "db" | 
 - **Ancora variabile → sorgente, con cache in memoria**: giornate non concluse (15 s se c'è una partita live, 5 min
   altrimenti), box score live (15 s) o non definitivi (5 min). `source: "live"`. Le richieste simultanee sulla stessa risorsa
   scaricano una volta sola. Se la sorgente non risponde si serve l'ultima copia del database, se esiste.
+- **Playoff** (`/playoffs`): non sono nel database ma si scaricano dalla sorgente con cache in memoria: 15 s se c'è una serie in corso, 5 min altrimenti, 1 ora a finale decisa. Se la sorgente non risponde si serve l'ultima copia in memoria. `source: "live"`.
 - Dati che il cron non ha ancora scaricato (database vuoto): stesso percorso "sorgente con cache".
 - Le risposte hanno `ETag`; con `If-None-Match` torna `304`.
 
@@ -43,9 +45,16 @@ Variabili: `DATABASE_DIR` (obbligatoria in produzione), `PORT` (3000), `HOST` (1
 
 ## Nella app
 
-`src/di/container.ts`: `BACKEND_LEAGUES` elenca i campionati serviti dal backend (ora tutti: `lba`, `a2`, `b`, `euroleague`, `eurocup`, `nba`); `EXPO_PUBLIC_API_URL`
+`src/di/container.ts`: `BACKEND_LEAGUES` elenca i campionati serviti dal backend (ora tutti: `lba`, `a2`, `b`, `euroleague`, `eurocup`, `nba`, `wnba`); `EXPO_PUBLIC_API_URL`
 cambia l'URL di base (default `https://043q46l.cserverhost.cloud`) e, se vuoto, disattiva il backend (la app torna alle sorgenti dirette: serve per lo sviluppo). Timeout richiesta: 8 s.
 Per aggiungere un campionato basta inserirlo in `BACKEND_LEAGUES` dopo aver fatto girare il suo cron.
+
+### Tabellone playoff
+
+La home mostra il tabellone al posto delle partite quando `LeagueInfo.playoffBracket` è vero e i playoff sono iniziati (`GetPlayoffBracket` → `PlayoffSource`).
+`BackendLeagueSource` implementa anche `PlayoffSource` (legge `/playoffs`); senza backend (sviluppo) si usa la sorgente diretta di `createPlayoffSource`.
+Per aggiungere un campionato: implementare `PlayoffSource` (per le fonti ufficiali NBA-like c'è `OfficialPlayoffSource`, per ESPN `EspnPlayoffSource`: ciascuna con la configurazione dei turni, vedi `wnba/WnbaPlayoffSource.ts`; `buildBracket` costruisce serie e tabellone; `FallbackPlayoffSource` aggiunge i backup),
+registrarla in `createPlayoffSource` (`src/di/createSource.ts`) e impostare `playoffBracket: true` in `LEAGUES`. L'endpoint del backend e la schermata non cambiano.
 
 ## Immagini
 

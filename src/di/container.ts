@@ -4,6 +4,7 @@ import { GetLeagueRanking } from '../application/GetLeagueRanking';
 import { GetHeadToHead } from '../application/GetHeadToHead';
 import { GetMatch } from '../application/GetMatch';
 import { GetMatchBoxScore } from '../application/GetMatchBoxScore';
+import { GetPlayoffBracket } from '../application/GetPlayoffBracket';
 import { GetPlayerProfile } from '../application/GetPlayerProfile';
 import { GetStandings } from '../application/GetStandings';
 import { GetTeamRoster } from '../application/GetTeamRoster';
@@ -24,7 +25,7 @@ import {
 } from '../infrastructure/db';
 import { FavoriteTeamStore } from '../infrastructure/storage/FavoriteTeamStore';
 import { SelectedLeagueStore } from '../infrastructure/storage/SelectedLeagueStore';
-import { createSource } from './createSource';
+import { createPlayoffSource, createSource } from './createSource';
 
 /**
  * Base URL del nostro backend (`server/`). Con `EXPO_PUBLIC_API_URL` vuoto la app usa solo le sorgenti dirette.
@@ -71,10 +72,14 @@ function createUseCases(league: LeagueId) {
   const teams = new SqliteTeamRepository(database);
   const players = new SqlitePlayerRepository(database);
 
-  const getCurrentRound = new GetCurrentRound(competitions, matches);
+  const getCurrentRound = new GetCurrentRound(competitions, matches, info.weeklyRounds);
+
+  const source = createLeagueSource(league, matches);
+  // Con il backend anche il tabellone arriva da lì; altrimenti (sviluppo) dalla sorgente diretta.
+  const playoffSource = info.playoffBracket ? (source instanceof BackendLeagueSource ? source : createPlayoffSource(league)) : null;
 
   return {
-    sync: new SyncLeague(createLeagueSource(league, matches), new SqliteLeagueStore(database)),
+    sync: new SyncLeague(source, new SqliteLeagueStore(database)),
     getStandings: new GetStandings(competitions, standings, info),
     getCurrentRound,
     getCalendar: new GetCalendar(competitions, matches, standings, getCurrentRound),
@@ -85,6 +90,7 @@ function createUseCases(league: LeagueId) {
     getTeamStats: new GetTeamStats(teams, competitions, standings),
     getPlayerProfile: new GetPlayerProfile(players),
     getLeagueRanking: new GetLeagueRanking(players),
+    getPlayoffBracket: playoffSource ? new GetPlayoffBracket(playoffSource) : null,
   };
 }
 

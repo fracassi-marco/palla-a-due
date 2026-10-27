@@ -6,7 +6,7 @@ import { HttpError } from '../api/HttpClient';
 const PRIMARY_COOLDOWN_MS = 60_000;
 
 /** Un guasto della fonte (rete, server, limite di richieste, dati in un formato nuovo) e non una richiesta sbagliata (404 e simili). */
-function isOutage(error: unknown): boolean {
+export function isOutage(error: unknown): boolean {
   if (!(error instanceof HttpError)) return true;
   return error.status >= 500 || error.status === 429 || error.status === 408;
 }

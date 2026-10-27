@@ -12,6 +12,7 @@ export class GetCurrentRound {
   constructor(
     private readonly competitions: CompetitionRepository,
     private readonly matches: MatchRepository,
+    private readonly weeklyRounds = false,
   ) {}
 
   /** Partite da mostrare: la giornata corrente di ogni competizione (una sola, tranne che con i gironi). */
@@ -21,7 +22,7 @@ export class GetCurrentRound {
       competitions.map(async (c) => {
         const round = await this.competitionRound(c.id, now);
         // Le "giornate" settimanali (NBA) hanno troppe partite per il carosello: ne teniamo solo due serate.
-        return c.totalDays ? latestAndNextNight(round) : round;
+        return this.weeklyRounds ? latestAndNextNight(round) : round;
       }),
     );
     return sortByStart(rounds.flat());

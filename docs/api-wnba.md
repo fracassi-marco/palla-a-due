@@ -36,6 +36,11 @@ totale si ricava dall'ultima. `weekNumber` del calendario vale sempre 0, quindi 
 - Solo Regular Season (`gameId` `102…`): precampionato (`101`), All-Star Game (`103`), playoff (`104`) e finale della Commissioner's Cup
   (`105`) sono scartati. Le partite del girone della Commissioner's Cup (stesso prefisso `102`) contano. Verificato sul 2026: 330 partite
   come con ESPN, con le stesse date, settimane e punteggi.
+- **Tabellone playoff**: non passa da calendario e database. Il backend lo legge dal calendario ufficiale (`/v1/wnba/playoffs`, vedi `docs/api-backend.md`; `wnbaPlayoffs` su `OfficialPlayoffSource`,
+  con `NBA_HEADERS`) e la home lo mostra al posto delle partite. Le partite `gameId` `104…` si raggruppano per turno (`gameLabel`: "First Round", "Semifinals", "WNBA Finals") e coppia di squadre;
+  `homeTeam.wins`/`awayTeam.wins` sono le vittorie della serie e `seed` la testa di serie (1-8). La lunghezza della serie non è nel file: al meglio di 3, 5, 7 per turno (in `WnbaPlayoffSource.ts`).
+  Se il CDN è guasto si ripiega su ESPN (`wnbaEspnPlayoffs`, senza teste di serie). In alto la squadra che ospita gara 1. Struttura fissa a 8 squadre (4 + 2 + 1 serie), con "Da definire" per quelle
+  non ancora create. Verificato sui playoff 2026: stessi risultati con le due fonti.
 - `postponedStatus: "Y"` non esclude una partita: una partita 2026 (NYL-DAL, 20/07) lo ha ed è stata giocata.
 - Classifica calcolata dalle partite e ordinata per **percentuale di vittorie**; le prime 8 vanno ai playoff (nessuna conference).
 - La valutazione (`rating`) è il PIR della EuroLeague, calcolato dal box score. A differenza di ESPN la fonte ufficiale pubblica falli

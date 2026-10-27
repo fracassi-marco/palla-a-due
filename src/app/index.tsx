@@ -8,6 +8,7 @@ import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCases } from '../di/container';
 import { LeagueSelector } from '../presentation/components/LeagueSelector';
+import { PlayoffBracketView } from '../presentation/components/PlayoffBracketView';
 import { MatchCard } from '../presentation/components/MatchCard';
 import { SectionTitle } from '../presentation/components/SectionTitle';
 import { Empty, ErrorView, Loading } from '../presentation/components/StateViews';
@@ -57,10 +58,18 @@ function Home() {
   const standings = useAsync(() => useCases.getStandings.execute(), [dataVersion], `${leagueId}:standings`);
   const matches = useAsync(() => useCases.getCurrentRound.execute(), [dataVersion], `${leagueId}:round`);
 
-  const refreshing = standings.refreshing || matches.refreshing;
+  // Con i playoff in corso il tabellone prende il posto delle partite; se non si carica, resta il carosello.
+  const bracket = useAsync(async () => (await useCases.getPlayoffBracket?.execute()) ?? null, [], `${leagueId}:bracket`);
+  const playoffs = bracket.data;
+  const bracketLoading = league.playoffBracket === true && bracket.loading;
+  const bracketLive = playoffs?.rounds.some((r) => r.series.some((s) => s?.live)) ?? false;
+  usePolling(bracket.reload, bracketLive, LIVE_SYNC_MS * 2);
+
+  const refreshing = standings.refreshing || matches.refreshing || bracket.refreshing;
   const reloadAll = () => {
     standings.reload();
     matches.reload();
+    bracket.reload();
     void useCases.sync.start();
   };
 
@@ -95,8 +104,16 @@ function Home() {
 
         <LeagueSelector />
 
-        <SectionTitle title="PARTITE" accent={colors.cyan} right={matches.data?.[0]?.dayName.toUpperCase()} />
-        {matches.loading ? (
+        <SectionTitle
+          title={playoffs ? 'PLAYOFF' : 'PARTITE'}
+          accent={colors.cyan}
+          right={playoffs ? 'TABELLONE' : matches.data?.[0]?.dayName.toUpperCase()}
+        />
+        {bracketLoading ? (
+          <Loading />
+        ) : playoffs ? (
+          <PlayoffBracketView bracket={playoffs} />
+        ) : matches.loading ? (
           <Loading />
         ) : matches.error ? (
           <ErrorView onRetry={matches.reload} />
