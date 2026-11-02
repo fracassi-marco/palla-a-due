@@ -72,19 +72,19 @@ export class SqliteLeagueStore implements LeagueStore {
   constructor(private readonly db: Database) {}
 
   async getCompetitions(seasonYear: number): Promise<StoredCompetition[]> {
-    const rows = await this.db.getAllAsync<{ id: number; name: string; season_year: number; total_days: number | null }>(
-      'SELECT id, name, season_year, total_days FROM competitions WHERE season_year = ? ORDER BY id',
+    const rows = await this.db.getAllAsync<{ id: number; name: string; season_year: number; total_days: number | null; phase: 'regular' | 'playoff' }>(
+      'SELECT id, name, season_year, total_days, phase FROM competitions WHERE season_year = ? ORDER BY id',
       [seasonYear],
     );
-    return rows.map((row) => ({ id: row.id, name: row.name, year: row.season_year, totalDays: row.total_days }));
+    return rows.map((row) => ({ id: row.id, name: row.name, year: row.season_year, totalDays: row.total_days, phase: row.phase }));
   }
 
   async saveCompetition(competition: Competition, totalDays: number | null): Promise<void> {
     await this.db.runAsync(
-      `INSERT INTO competitions (id, season_year, name, total_days) VALUES (?, ?, ?, ?)
+      `INSERT INTO competitions (id, season_year, name, total_days, phase) VALUES (?, ?, ?, ?, ?)
        ON CONFLICT (id) DO UPDATE SET season_year = excluded.season_year, name = excluded.name,
          total_days = COALESCE(excluded.total_days, total_days)`,
-      [competition.id, competition.year, competition.name, totalDays],
+      [competition.id, competition.year, competition.name, totalDays, competition.phase ?? 'regular'],
     );
   }
 

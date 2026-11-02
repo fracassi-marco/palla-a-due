@@ -83,7 +83,7 @@ function createUseCases(league: LeagueId) {
     getStandings: new GetStandings(competitions, standings, info),
     getCurrentRound,
     getCalendar: new GetCalendar(competitions, matches, standings, getCurrentRound),
-    getMatch: new GetMatch(competitions, matches),
+    getMatch: new GetMatch(matches),
     getHeadToHead: new GetHeadToHead(matches),
     getMatchBoxScore: new GetMatchBoxScore(matches),
     getTeamRoster: new GetTeamRoster(teams),

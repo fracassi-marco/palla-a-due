@@ -1,5 +1,6 @@
 import { HttpClient } from '../api/HttpClient';
 import { EspnPlayoffSource } from '../espn/EspnPlayoffSource';
+import { wnbaPlayoffMatchId } from './ids';
 import { toTeamRef } from './mappers';
 import { wnbaTeamByEspnCode } from './teams';
 
@@ -17,4 +18,5 @@ export const wnbaEspnPlayoffs = (http: HttpClient) =>
       const team = wnbaTeamByEspnCode(code);
       return team && toTeamRef(team);
     },
+    matchId: wnbaPlayoffMatchId,
   });

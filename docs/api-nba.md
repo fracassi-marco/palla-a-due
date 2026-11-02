@@ -35,9 +35,8 @@ stessa partita e i loro dati si mescolano nel database senza duplicati. `getBoxS
 
 ## Decisioni e limiti noti
 
-- **Tabellone playoff**: `/v1/nba/playoffs`, dal tabellone di ESPN (`nbaEspnPlayoffs`): primo turno (8 serie), semifinali (4) e finali (2) di conference, finale NBA, tutte al meglio delle 7; il play-in
-  (`season.type` 5) non c'è. ESPN indica la stagione con l'anno di fine (`dates=2026` per la 2025-26). Verificato sui playoff 2026. Il calendario ufficiale (`gameId` `004…`) ha le stesse informazioni della WNBA,
-  con le teste di serie, ma il file contiene solo la stagione in corso e non è stato verificato sui playoff NBA: quando saranno disponibili si può passare a `OfficialPlayoffSource` con ESPN come backup (come la WNBA).
+- **Tabellone playoff**: `/v1/nba/playoffs`, dal calendario ufficiale (`nbaPlayoffs`, `OfficialPlayoffSource`, gare `004…`) con ESPN (`nbaEspnPlayoffs`) come backup, come per la WNBA: primo turno (8 serie), semifinali (4) e finali (2) di conference, finale NBA, tutte al meglio delle 7; il **play-in** (gare `005…`, `season.type` 5 su ESPN) è il primo turno del tabellone: 6 gare secche (3 per conference) in un solo turno `PLAY-IN`, con il vincitore ricavato dal punteggio. Le etichette `gameLabel` del calendario sono quelle attese ("East First Round", "East Conf Semifinals", "West Conf Finals", "NBA Finals", e qualcosa con "Play-In" per il play-in) ma non sono state verificate: il file contiene solo la stagione in corso e finora non aveva gare di playoff. ESPN indica la stagione con l'anno di fine (`dates=2026` per la 2025-26).
+- **Gare di playoff nel database**: `findPlayoffs` espone una competizione a parte (`phase` = `playoff`, id `anno*10+2`) con le gare `004…` e `005…`, le cui "giornate" sono le settimane dalla prima gara; il tabellone riporta per ogni gara lo stesso `matchId` del database, così la card apre la scheda partita. Classifiche e statistiche leggono solo la Regular Season.
 - Solo Regular Season: precampionato, play-in, playoff e le partite a eliminazione della NBA Cup (quarti, semifinali, finale: si
   riconoscono da `gameSubLabel`, hanno squadre da definire e non contano in classifica) sono scartati. Le partite del gruppo della NBA Cup contano.
 - Classifica calcolata dalle partite e ordinata per **percentuale di vittorie** (`LeagueInfo.byWinPercentage`: le squadre non hanno

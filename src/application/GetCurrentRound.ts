@@ -61,7 +61,7 @@ export class GetCurrentRound {
 }
 
 /** Delle partite di una settimana: le live, le concluse dell'ultima serata giocata e le future della prossima. */
-function latestAndNextNight(round: Match[]): Match[] {
+export function latestAndNextNight(round: Match[]): Match[] {
   const nights = (status: Match['status']) => round.filter((m) => m.status === status).map((m) => romeGameNight(m.startsAt));
   const lastFinished = nights('finished').sort().at(-1);
   const nextScheduled = nights('scheduled').sort()[0];

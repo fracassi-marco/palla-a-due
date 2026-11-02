@@ -21,6 +21,10 @@ export interface PlayoffGame {
   round: number;
   startsAt: Date;
   state: 'pre' | 'in' | 'post';
+  /** Id della partita nel database dell'app, se la lega salva i playoff. */
+  matchId: number | null;
+  homeScore: number | null;
+  awayScore: number | null;
   home: PlayoffGameTeam;
   away: PlayoffGameTeam;
 }
@@ -54,8 +58,12 @@ function toSeries(games: PlayoffGame[], bestOf: number): PlayoffSeries {
   const bottom = first.away;
   // Il conteggio vittorie è quello dell'ultima partita (le fonti lo aggiornano a ogni gara).
   const winsOf = (team: PlayoffGameTeam) => [last.home, last.away].find((t) => t.team.id === team.team.id)?.seriesWins ?? 0;
-  const topWins = winsOf(top);
-  const bottomWins = winsOf(bottom);
+  // Una gara secca (play-in) non ha un conteggio di serie: il vincitore si ricava dal punteggio.
+  const single = bestOf === 1 && last.state === 'post' && last.homeScore !== null && last.awayScore !== null;
+  const homeWon = single && last.homeScore! > last.awayScore!;
+  const winsInSingle = (team: PlayoffGameTeam) => (single && (last.home.team.id === team.team.id) === homeWon ? 1 : 0);
+  const topWins = bestOf === 1 ? winsInSingle(top) : winsOf(top);
+  const bottomWins = bestOf === 1 ? winsInSingle(bottom) : winsOf(bottom);
   const needed = Math.ceil(bestOf / 2);
   const decided = topWins >= needed || bottomWins >= needed;
 
@@ -72,6 +80,16 @@ function toSeries(games: PlayoffGame[], bestOf: number): PlayoffSeries {
     winnerId: decided ? (topWins > bottomWins ? top.team.id : bottom.team.id) : null,
     live: games.some((g) => g.state === 'in'),
     nextGameAt: next && !decided ? next.startsAt : null,
+    games: games.map((g, i) => ({
+      matchId: g.matchId,
+      number: i + 1,
+      status: g.state === 'pre' ? 'scheduled' : g.state === 'in' ? 'live' : 'finished',
+      startsAt: g.startsAt,
+      home: g.home.team,
+      away: g.away.team,
+      homeScore: g.state === 'pre' ? null : g.homeScore,
+      awayScore: g.state === 'pre' ? null : g.awayScore,
+    })),
   };
 }
 

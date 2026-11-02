@@ -46,12 +46,11 @@ export default function MatchScreen() {
   const headToHead = useAsync(() => useCases.getHeadToHead.execute(homeId, awayId, matchId), [homeId, awayId, matchId, dataVersion]);
 
   const startsAt = useMemo(() => new Date(p.startsAt), [p.startsAt]);
-  const dayNumber = Number(p.day);
 
   // Stato e punteggio partono dai parametri di navigazione e poi si aggiornano dal database.
   const matchState = useAsync(
-    () => (dayNumber > 0 ? useCases.getMatch.execute(matchId, dayNumber) : Promise.resolve(null)),
-    [matchId, dayNumber, dataVersion],
+    () => useCases.getMatch.execute(matchId),
+    [matchId, dataVersion],
   );
   const status = matchState.data?.status ?? (p.status as MatchStatus);
   const homeScore = matchState.data ? (matchState.data.homeScore ?? '') : p.homeScore;

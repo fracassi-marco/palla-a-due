@@ -83,11 +83,13 @@ async function live<T>(key: string, ttlMs: number, load: () => Promise<T>, stale
   }
 }
 
-async function competitions(league: LeagueId, season: number): Promise<Payload<unknown>> {
+async function competitions(league: LeagueId, season: number, phase: 'regular' | 'playoff'): Promise<Payload<unknown>> {
   const { reader, source } = contextOf(league);
-  const stored = await reader.competitions(season);
-  if (stored.length > 0) return { source: 'db', updatedAt: 0, data: stored, maxAge: FINAL_MAX_AGE_S };
-  return live(`${league}:competitions:${season}`, STATIC_TTL_MS, () => source.findRegularSeasons(season), null);
+  const stored = await reader.competitions(season, phase);
+  if (stored.length > 0 && phase === 'regular') return { source: 'db', updatedAt: 0, data: stored, maxAge: FINAL_MAX_AGE_S };
+  // I giorni dei playoff crescono con le serie: la competizione si rilegge dalla fonte, con il database come copia.
+  const fetch = () => (phase === 'playoff' ? (source.findPlayoffs?.(season) ?? Promise.resolve([])) : source.findRegularSeasons(season));
+  return live(`${league}:competitions:${phase}:${season}`, STATIC_TTL_MS, fetch, stored.length > 0 ? { value: stored, fetchedAt: 0 } : null);
 }
 
 /**
@@ -161,7 +163,8 @@ const LEAGUE = '([a-z0-9]+)';
 const ROUTES: { pattern: RegExp; handle: (params: string[], query: URLSearchParams) => Promise<Payload<unknown>> }[] = [
   {
     pattern: new RegExp(`^/v1/${LEAGUE}/competitions$`),
-    handle: ([league], query) => competitions(leagueOf(league), Number(query.get('season') ?? currentSeasonYear())),
+    handle: ([league], query) =>
+      competitions(leagueOf(league), Number(query.get('season') ?? currentSeasonYear()), query.get('phase') === 'playoff' ? 'playoff' : 'regular'),
   },
   {
     pattern: new RegExp(`^/v1/${LEAGUE}/competitions/${ID}/days/${ID}$`),

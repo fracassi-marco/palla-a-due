@@ -1,5 +1,6 @@
 import { HttpClient } from '../api/HttpClient';
 import { EspnPlayoffSource } from '../espn/EspnPlayoffSource';
+import { nbaPlayoffMatchId } from './ids';
 import { toTeamRef } from './mappers';
 import { nbaTeamByEspnCode } from './teams';
 
@@ -8,7 +9,10 @@ export const nbaEspnPlayoffs = (http: HttpClient) =>
   new EspnPlayoffSource(http, {
     scoreboardUrl: 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard',
     espnYear: (seasonYear) => seasonYear + 1,
+    // Il play-in è `season.type` 5.
+    seasonTypes: [5, 3],
     rounds: [
+      { name: 'PLAY-IN', match: /play-?in/i, bestOf: 1, slots: 6 },
       { name: 'PRIMO TURNO', match: /1st round/i, bestOf: 7, slots: 8 },
       { name: 'SEMIFINALI DI CONFERENCE', match: /semifinals/i, bestOf: 7, slots: 4 },
       { name: 'FINALI DI CONFERENCE', match: /(east|west) finals/i, bestOf: 7, slots: 2 },
@@ -18,4 +22,5 @@ export const nbaEspnPlayoffs = (http: HttpClient) =>
       const team = nbaTeamByEspnCode(code);
       return team && toTeamRef(team);
     },
+    matchId: nbaPlayoffMatchId,
   });

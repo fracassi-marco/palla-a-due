@@ -1,4 +1,4 @@
-import { Competition, Match, MatchBoxScore, PlayoffBracket, PlayoffRound, PlayoffSeries, Roster } from '../../domain/entities';
+import { Competition, Match, MatchBoxScore, PlayoffBracket, PlayoffGameResult, PlayoffRound, PlayoffSeries, Roster } from '../../domain/entities';
 import { LeagueId } from '../../domain/League';
 import { LeagueSource, PlayoffSource } from '../../domain/ports';
 import { HttpClient } from '../api/HttpClient';
@@ -15,7 +15,8 @@ interface Envelope<T> {
 type MatchJson = Omit<Match, 'startsAt'> & { startsAt: string };
 
 /** Il tabellone playoff in JSON: la data della prossima partita arriva come testo ISO. */
-type PlayoffBracketJson = { rounds: (Omit<PlayoffRound, 'series'> & { series: ((Omit<PlayoffSeries, 'nextGameAt'> & { nextGameAt: string | null }) | null)[] })[] };
+type PlayoffGameJson = Omit<PlayoffGameResult, 'startsAt'> & { startsAt: string };
+type PlayoffBracketJson = { rounds: (Omit<PlayoffRound, 'series'> & { series: ((Omit<PlayoffSeries, 'nextGameAt' | 'games'> & { nextGameAt: string | null; games: PlayoffGameJson[] }) | null)[] })[] };
 
 const toMatch = (json: MatchJson): Match => ({ ...json, startsAt: new Date(json.startsAt) });
 
@@ -34,6 +35,10 @@ export class BackendLeagueSource implements LeagueSource, PlayoffSource {
     return this.read('/competitions', { season: seasonYear });
   }
 
+  findPlayoffs(seasonYear: number): Promise<Competition[]> {
+    return this.read('/competitions', { season: seasonYear, phase: 'playoff', v: 2 });
+  }
+
   async getDay(competitionId: number, dayNumber: number): Promise<Match[]> {
     const matches = await this.read<MatchJson[]>(`/competitions/${competitionId}/days/${dayNumber}`);
     return matches.map(toMatch);
@@ -44,12 +49,20 @@ export class BackendLeagueSource implements LeagueSource, PlayoffSource {
   }
 
   async getBracket(seasonYear: number): Promise<PlayoffBracket | null> {
-    const bracket = await this.read<PlayoffBracketJson | null>('/playoffs', { season: seasonYear });
+    // `v` cambia con la forma della risposta: la cache HTTP (max-age 1 ora) non serve più la vecchia, senza `games` e `matchId`.
+    const bracket = await this.read<PlayoffBracketJson | null>('/playoffs', { season: seasonYear, v: 5 });
     if (!bracket) return null;
     return {
       rounds: bracket.rounds.map((round) => ({
         ...round,
-        series: round.series.map((s) => s && { ...s, nextGameAt: s.nextGameAt ? new Date(s.nextGameAt) : null }),
+        series: round.series.map(
+          (s) =>
+            s && {
+              ...s,
+              nextGameAt: s.nextGameAt ? new Date(s.nextGameAt) : null,
+              games: (s.games ?? []).map((g) => ({ ...g, startsAt: new Date(g.startsAt) })),
+            },
+        ),
       })),
     };
   }

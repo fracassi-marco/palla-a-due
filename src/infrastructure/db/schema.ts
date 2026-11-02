@@ -185,4 +185,9 @@ const MIGRATION_2 = `
 ALTER TABLE matches ADD COLUMN live_label TEXT;
 `;
 
-export const MIGRATIONS: string[] = [MIGRATION_1, MIGRATION_2];
+// Le gare di playoff sono una competizione a parte della stessa stagione: classifiche e statistiche leggono solo 'regular'.
+const MIGRATION_3 = `
+ALTER TABLE competitions ADD COLUMN phase TEXT NOT NULL DEFAULT 'regular' CHECK (phase IN ('regular', 'playoff'));
+`;
+
+export const MIGRATIONS: string[] = [MIGRATION_1, MIGRATION_2, MIGRATION_3];

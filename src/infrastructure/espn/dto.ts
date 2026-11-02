@@ -4,7 +4,7 @@ export interface EspnPlayoffEventDto {
   /** 1 = precampionato, 2 = Regular Season, 3 = playoff. */
   season: { type: number };
   competitions: {
-    competitors: { homeAway: 'home' | 'away'; team: { id: string; abbreviation: string } }[];
+    competitors: { homeAway: 'home' | 'away'; score?: string; team: { id: string; abbreviation: string } }[];
     /** Turno e partita: "First Round - Game 1", "WNBA Finals - Game 7 If Necessary". */
     notes?: { headline?: string }[];
     series?: { totalCompetitions: number; completed: boolean; competitors: { id: string; wins: number }[] };

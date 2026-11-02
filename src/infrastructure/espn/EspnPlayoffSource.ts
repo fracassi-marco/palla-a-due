@@ -8,10 +8,14 @@ export interface EspnPlayoffConfig {
   scoreboardUrl: string;
   /** Anno con cui ESPN indica la stagione (`dates=`) dato l'anno di inizio della stagione. */
   espnYear: (seasonYear: number) => number;
+  /** Tipi di stagione ESPN che contano come playoff; default solo 3. */
+  seasonTypes?: number[];
   /** Dal primo turno alla finale; `match` riconosce il turno dal titolo della partita ("West Finals - Game 2"). */
   rounds: (PlayoffRoundConfig & { match: RegExp })[];
   /** Squadra dalla sigla ESPN; `undefined` per una sigla non nota (squadra da definire o nuova). */
   teamByEspnCode: (code: string) => TeamRef | undefined;
+  /** Id della partita nel database dell'app, per le leghe che salvano i playoff. */
+  matchId?: (startsAt: Date, home: TeamRef, away: TeamRef) => number;
 }
 
 /**
@@ -29,7 +33,7 @@ export class EspnPlayoffSource implements PlayoffSource {
       dates: String(this.config.espnYear(seasonYear)),
       limit: '1000',
     });
-    const games = dto.events.filter((e) => e.season.type === 3).flatMap((e) => this.toGame(e));
+    const games = dto.events.filter((e) => (this.config.seasonTypes ?? [3]).includes(e.season.type)).flatMap((e) => this.toGame(e));
     return games.length === 0 ? null : buildBracket(games, this.config.rounds);
   }
 
@@ -48,6 +52,10 @@ export class EspnPlayoffSource implements PlayoffSource {
     };
     const [homeSide, awaySide] = [side(home), side(away)];
     if (!homeSide || !awaySide) return [];
-    return [{ round, startsAt: new Date(event.date), state: game.status.type.state, home: homeSide, away: awaySide }];
+    const startsAt = new Date(event.date);
+    const matchId = this.config.matchId?.(startsAt, homeSide.team, awaySide.team) ?? null;
+    return [{ round, startsAt, matchId, state: game.status.type.state, home: homeSide, away: awaySide, homeScore: score(home), awayScore: score(away) }];
   }
 }
+
+const score = (c: { score?: string }) => (c.score === undefined ? null : Number(c.score));

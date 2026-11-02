@@ -57,7 +57,7 @@ export class SqliteTeamRepository implements TeamRepository {
 
   async getSeasonStats(teamId: number, seasonYear: number): Promise<TeamSeasonStats | null> {
     const rows = await this.db.getAllAsync<SeasonTotalsRow>(
-      `SELECT s.* FROM team_season_totals s JOIN competitions c ON c.id = s.competition_id WHERE c.season_year = ?`,
+      `SELECT s.* FROM team_season_totals s JOIN competitions c ON c.id = s.competition_id WHERE c.season_year = ? AND c.phase = 'regular'`,
       [seasonYear],
     );
     const own = rows.find((r) => r.team_id === teamId);
@@ -100,7 +100,7 @@ export class SqliteTeamRepository implements TeamRepository {
        FROM team_games g
        JOIN competitions c ON c.id = g.competition_id
        JOIN teams o ON o.id = g.opponent_id
-       WHERE g.team_id = ? AND c.season_year = ?
+       WHERE g.team_id = ? AND c.season_year = ? AND c.phase = 'regular'
        ORDER BY g.starts_at, g.match_id`,
       [teamId, seasonYear],
     );

@@ -63,8 +63,8 @@ export class LeagueReader {
     return this.matches;
   }
 
-  async competitions(seasonYear: number): Promise<Competition[]> {
-    return this.store.getCompetitions(seasonYear);
+  async competitions(seasonYear: number, phase: 'regular' | 'playoff' = 'regular'): Promise<Competition[]> {
+    return (await this.store.getCompetitions(seasonYear)).filter((c) => (c.phase ?? 'regular') === phase);
   }
 
   /** La giornata, se il cron l'ha già scaricata almeno una volta. */

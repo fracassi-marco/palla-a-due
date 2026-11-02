@@ -1,5 +1,6 @@
 import { HttpClient } from '../api/HttpClient';
 import { OfficialPlayoffSource } from '../nba/OfficialPlayoffSource';
+import { wnbaPlayoffMatchId } from './ids';
 import { toTeamRef } from './mappers';
 import { wnbaTeamById } from './teams';
 
@@ -7,7 +8,7 @@ import { wnbaTeamById } from './teams';
 export const wnbaPlayoffs = (http: HttpClient) =>
   new OfficialPlayoffSource(http, {
     scheduleUrl: 'https://cdn.wnba.com/static/json/staticData/scheduleLeagueV2.json',
-    gameIdPrefix: '104',
+    gameIdPrefixes: ['104'],
     rounds: [
       { name: 'PRIMO TURNO', match: /first round/i, bestOf: 3, slots: 4 },
       { name: 'SEMIFINALI', match: /semifinal/i, bestOf: 5, slots: 2 },
@@ -17,4 +18,5 @@ export const wnbaPlayoffs = (http: HttpClient) =>
       const team = wnbaTeamById(id);
       return team && toTeamRef(team);
     },
+    matchId: wnbaPlayoffMatchId,
   });

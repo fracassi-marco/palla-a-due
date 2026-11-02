@@ -7,7 +7,7 @@ import { TeamLogo } from './TeamLogo';
 
 interface Props {
   match: Match;
-  onPress: () => void;
+  onPress?: () => void;
   width?: number;
 }
 

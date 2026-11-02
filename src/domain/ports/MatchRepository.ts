@@ -8,6 +8,8 @@ export interface MatchRepository {
   getCurrentDayMatches(competitionId: number, now: Date): Promise<Match[]>;
   /** Partite di una giornata specifica; lista vuota se la giornata non c'è. */
   getMatchesByDay(competitionId: number, dayNumber: number): Promise<Match[]>;
+  /** Una partita per id, di qualunque fase; null se non salvata. */
+  getMatch(matchId: number): Promise<Match | null>;
   /** Partite concluse tra due squadre (in casa o in trasferta), dalla più recente; `excludeMatchId` lascia fuori quella in esame. */
   getHeadToHead(teamAId: number, teamBId: number, excludeMatchId: number, limit: number): Promise<Match[]>;
   /** Statistiche dei giocatori di una partita; vuote se non ancora scaricate. */

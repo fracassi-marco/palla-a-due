@@ -10,6 +10,7 @@ import { FallbackLeagueSource } from '../infrastructure/fallback/FallbackLeagueS
 import { LnpLeagueSource } from '../infrastructure/lnp/LnpLeagueSource';
 import { LNP_A2, LNP_B } from '../infrastructure/lnp/series';
 import { nbaEspnPlayoffs } from '../infrastructure/nba/NbaEspnPlayoffSource';
+import { nbaPlayoffs } from '../infrastructure/nba/NbaPlayoffSource';
 import { NbaEspnLeagueSource } from '../infrastructure/nba/NbaEspnLeagueSource';
 import { NBA_HEADERS, NbaLeagueSource } from '../infrastructure/nba/NbaLeagueSource';
 import { WnbaEspnLeagueSource } from '../infrastructure/wnba/WnbaEspnLeagueSource';
@@ -51,7 +52,7 @@ export const createSource = (league: LeagueId, matches: MatchRepository): League
 export function createPlayoffSource(league: LeagueId): PlayoffSource | null {
   switch (league) {
     case 'nba':
-      return nbaEspnPlayoffs(new FetchHttpClient());
+      return new FallbackPlayoffSource(nbaPlayoffs(new FetchHttpClient('', NBA_HEADERS)), [nbaEspnPlayoffs(new FetchHttpClient())]);
     case 'wnba':
       return new FallbackPlayoffSource(wnbaPlayoffs(new FetchHttpClient('', NBA_HEADERS)), [wnbaEspnPlayoffs(new FetchHttpClient())]);
     default:

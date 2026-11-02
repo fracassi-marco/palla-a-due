@@ -12,8 +12,8 @@ interface PlayoffGameDto {
   /** Turno: "First Round", "Semifinals", "WNBA Finals". */
   gameLabel: string;
   /** `wins` sono le vittorie della serie, `seed` la testa di serie. */
-  homeTeam: { teamId: number; wins: number; seed: number };
-  awayTeam: { teamId: number; wins: number; seed: number };
+  homeTeam: { teamId: number; wins: number; seed: number; score: number };
+  awayTeam: { teamId: number; wins: number; seed: number; score: number };
 }
 
 interface ScheduleDto {
@@ -22,12 +22,14 @@ interface ScheduleDto {
 
 export interface OfficialPlayoffConfig {
   scheduleUrl: string;
-  /** Prefisso del `gameId` delle partite di playoff ("104" per la WNBA). */
-  gameIdPrefix: string;
+  /** Prefissi del `gameId` delle partite di playoff ("104" per la WNBA; "004" e, per il play-in, "005" per la NBA). */
+  gameIdPrefixes: string[];
   /** Dal primo turno alla finale; `match` riconosce il turno da `gameLabel`. */
   rounds: (PlayoffRoundConfig & { match: RegExp })[];
   /** Squadra dall'id ufficiale; `undefined` per una squadra ancora da definire. */
   teamById: (id: number) => TeamRef | undefined;
+  /** Id della partita nel database dell'app, per le leghe che salvano i playoff. */
+  matchId?: (startsAt: Date, home: TeamRef, away: TeamRef) => number;
 }
 
 const STATES = { 1: 'pre', 2: 'in', 3: 'post' } as const;
@@ -49,7 +51,7 @@ export class OfficialPlayoffSource implements PlayoffSource {
 
     const games = leagueSchedule.gameDates
       .flatMap((d) => d.games)
-      .filter((g) => g.gameId.startsWith(this.config.gameIdPrefix))
+      .filter((g) => this.config.gameIdPrefixes.some((prefix) => g.gameId.startsWith(prefix)))
       .flatMap((g) => this.toGame(g));
     return games.length === 0 ? null : buildBracket(games, this.config.rounds);
   }
@@ -63,6 +65,8 @@ export class OfficialPlayoffSource implements PlayoffSource {
     };
     const [home, away] = [side(game.homeTeam), side(game.awayTeam)];
     if (round < 0 || !home || !away) return [];
-    return [{ round, startsAt: new Date(game.gameDateTimeUTC), state: STATES[game.gameStatus as 1 | 2 | 3] ?? 'pre', home, away }];
+    const startsAt = new Date(game.gameDateTimeUTC);
+    const matchId = this.config.matchId?.(startsAt, home.team, away.team) ?? null;
+    return [{ round, startsAt, matchId, state: STATES[game.gameStatus as 1 | 2 | 3] ?? 'pre', home, away, homeScore: game.homeTeam.score ?? null, awayScore: game.awayTeam.score ?? null }];
   }
 }

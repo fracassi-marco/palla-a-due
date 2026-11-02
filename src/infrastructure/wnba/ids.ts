@@ -1,4 +1,6 @@
-import { teamAtIndex, teamIndex, WnbaTeam } from './teams';
+import { TeamRef } from '../../domain/entities';
+import { teamAtIndex, teamIndex, WnbaTeam, wnbaTeamById } from './teams';
+import { easternDate } from './weeks';
 
 /**
  * L'API NBA identifica le partite con un `gameId` ("1022600101") che ESPN, il backup, non conosce: l'id numerico dell'app
@@ -12,6 +14,9 @@ const DATE_SPACE = 10_000;
 
 /** Id della competizione: come per le altre leghe, anno a 2 cifre per 10 (+ girone, qui sempre 1). */
 export const competitionId = (seasonYear: number) => (seasonYear % 100) * 10 + 1;
+
+/** Competizione che raccoglie i playoff della stessa stagione. */
+export const playoffCompetitionId = (seasonYear: number) => (seasonYear % 100) * 10 + 2;
 
 /** `date` è AAAAMMGG, in ora della costa Est. */
 export const matchId = (date: string, home: WnbaTeam, away: WnbaTeam) =>
@@ -27,3 +32,8 @@ export function decodeMatchId(id: number): { date: string; home: WnbaTeam; away:
 
 /** "20260614/WASNYL": data, ospiti, casa. */
 export const gameCode = (date: string, home: WnbaTeam, away: WnbaTeam) => `${date}/${away.code}${home.code}`;
+
+/** Id della partita di playoff dagli attori noti al tabellone: gli stessi che la Regular Season ricava dal calendario. */
+export function wnbaPlayoffMatchId(startsAt: Date, home: TeamRef, away: TeamRef): number {
+  return matchId(easternDate(startsAt.toISOString()), wnbaTeamById(home.id)!, wnbaTeamById(away.id)!);
+}

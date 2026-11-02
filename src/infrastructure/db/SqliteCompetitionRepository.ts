@@ -7,7 +7,7 @@ export class SqliteCompetitionRepository implements CompetitionRepository {
 
   async getSeasonCompetitions(seasonYear: number): Promise<Competition[]> {
     const rows = await this.db.getAllAsync<{ id: number; name: string; season_year: number; total_days: number | null }>(
-      'SELECT id, name, season_year, total_days FROM competitions WHERE season_year = ? ORDER BY id',
+      'SELECT id, name, season_year, total_days FROM competitions WHERE season_year = ? AND phase = \'regular\' ORDER BY id',
       [seasonYear],
     );
     if (rows.length === 0) throw new Error(`Regular Season ${seasonYear} non ancora scaricata`);

@@ -9,11 +9,12 @@ const CARD_HEIGHT = 112;
 const CARD_GAP = 16;
 const COLUMN_GAP = 14;
 
-/** Tabellone a colonne, dal primo turno alla finale: le serie dei turni successivi stanno al centro di quelle che le alimentano. */
+/** Tabellone a colonne, dal primo turno (o dal play-in) alla finale: le serie dei turni successivi stanno al centro di quelle che le alimentano. */
 export function PlayoffBracketView({ bracket }: { bracket: PlayoffBracket }) {
   const { width } = useWindowDimensions();
   const columnWidth = Math.min(width * 0.78, 280);
-  const slots = bracket.rounds[0].series.length;
+  // Il turno più largo dà l'altezza: il play-in, che precede il primo turno, ha meno serie di questo.
+  const slots = Math.max(...bracket.rounds.map((r) => r.series.length));
   const height = slots * CARD_HEIGHT + (slots - 1) * CARD_GAP;
 
   return (
@@ -77,9 +78,9 @@ function TeamRow({ team, seed, wins, state }: { team: TeamRef; seed: number | nu
 }
 
 function footer(series: PlayoffSeries): string {
-  if (series.winnerId !== null) return 'SERIE CONCLUSA';
+  if (series.winnerId !== null) return series.bestOf === 1 ? 'CONCLUSA' : 'SERIE CONCLUSA';
   if (series.live) return 'IN CORSO';
-  const format = `AL MEGLIO DELLE ${series.bestOf}`;
+  const format = series.bestOf === 1 ? 'GARA SECCA' : `AL MEGLIO DELLE ${series.bestOf}`;
   if (!series.nextGameAt) return format;
   const at = series.nextGameAt;
   return `PROSSIMA ${formatWeekday(at)} ${formatDayMonth(at)} · ${formatTime(at)}`;

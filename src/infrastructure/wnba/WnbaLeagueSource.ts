@@ -3,7 +3,7 @@ import { LeagueSource } from '../../domain/ports';
 import { HttpClient } from '../api/HttpClient';
 import { BoxScoreDto, PlayerIndexDto, ScheduleDto, ScheduleGameDto, ScoreboardDto, ScoreboardGameDto } from '../nba/dto';
 import { gameDate, STATUSES } from '../nba/mappers';
-import { competitionId, decodeMatchId, gameCode } from './ids';
+import { competitionId, decodeMatchId, gameCode, playoffCompetitionId } from './ids';
 import { toBoxScoreSide, toMatch, toPlayer, toTeamRef } from './mappers';
 import { wnbaTeamById } from './teams';
 import { TtlCache } from './TtlCache';
@@ -24,12 +24,18 @@ const HOUR_MS = 60 * 60_000;
 const SCOREBOARD_FILE = 'todaysScoreboard_10.json';
 /** Regular Season ("102…", comprese le partite del girone della Commissioner's Cup): non il precampionato (101), l'All-Star Game (103), i playoff (104) né la finale della Commissioner's Cup (105). */
 const REGULAR_SEASON_PREFIX = '102';
+/** Playoff: stessa struttura del calendario, in una competizione a parte. */
+const PLAYOFF_PREFIX = '104';
 
 /** Partite di Regular Season di un anno e settimane in cui cadono: la prima inizia dal lunedì della prima partita. */
 interface Season {
   games: ScheduleGameDto[];
   firstMonday: number;
   totalWeeks: number;
+  /** Gare di playoff già in calendario con entrambe le squadre note; le loro settimane partono da `playoffFirstWeek`. */
+  playoffGames: ScheduleGameDto[];
+  playoffFirstWeek: number;
+  playoffWeeks: number;
 }
 
 const EMPTY_STATS = {
@@ -75,10 +81,20 @@ export class WnbaLeagueSource implements LeagueSource {
     return [{ id: competitionId(seasonYear), name: 'WNBA', year: seasonYear, totalDays: totalWeeks }];
   }
 
+  async findPlayoffs(seasonYear: number): Promise<Competition[]> {
+    const { playoffWeeks } = await this.season(seasonYear);
+    return playoffWeeks === 0
+      ? []
+      : [{ id: playoffCompetitionId(seasonYear), name: 'WNBA Playoff', year: seasonYear, totalDays: playoffWeeks, phase: 'playoff' }];
+  }
+
   async getDay(competition: number, dayNumber: number): Promise<Match[]> {
     const seasonYear = 2000 + Math.floor(competition / 10);
-    const { games, firstMonday } = await this.season(seasonYear);
-    const day = games.filter((g) => weekOf(firstMonday, gameDate(g)) === dayNumber);
+    const { games, playoffGames, firstMonday, playoffFirstWeek } = await this.season(seasonYear);
+    const playoff = competition === playoffCompetitionId(seasonYear);
+    // Le "giornate" di playoff sono le settimane a partire da quella della prima gara.
+    const week = playoff ? playoffFirstWeek + dayNumber - 1 : dayNumber;
+    const day = (playoff ? playoffGames : games).filter((g) => weekOf(firstMonday, gameDate(g)) === week);
     const live = await this.liveGames(day);
     return day.map((game) => {
       const home = wnbaTeamById(game.homeTeam.teamId)!;
@@ -86,7 +102,7 @@ export class WnbaLeagueSource implements LeagueSource {
       const update = live.get(game.gameId);
       const status = this.statusOf(game, update);
       const score = update ?? game;
-      return toMatch(
+      const match = toMatch(
         competition,
         firstMonday,
         gameDate(game),
@@ -98,15 +114,16 @@ export class WnbaLeagueSource implements LeagueSource {
         { name: game.arenaName, city: game.arenaCity },
         update && { period: update.period, clock: update.gameClock },
       );
+      return playoff ? { ...match, dayNumber, dayName: `Playoff · settimana ${dayNumber}` } : match;
     });
   }
 
   async getBoxScore(id: number): Promise<MatchBoxScore> {
     const { date, home, away } = decodeMatchId(id);
     // La stagione WNBA cade nell'anno solare della partita.
-    const { games } = await this.season(Number(date.slice(0, 4)));
+    const { games, playoffGames } = await this.season(Number(date.slice(0, 4)));
     const code = gameCode(date, home, away);
-    const game = games.find((g) => g.gameCode === code);
+    const game = [...games, ...playoffGames].find((g) => g.gameCode === code);
     if (!game) throw new Error(`Partita ${code} non trovata nel calendario WNBA`);
 
     // Prima della palla a due il file non esiste (il CDN risponde 403): niente richiesta.
@@ -152,9 +169,8 @@ export class WnbaLeagueSource implements LeagueSource {
       const dto = await this.http.get<ScheduleDto>(`${CDN_URL}/staticData/scheduleLeagueV2.json`);
       // Il file contiene una sola stagione ("2026"); fuori stagione resta quella precedente.
       const published = Number(dto.leagueSchedule.seasonYear.slice(0, 4));
-      const games = dto.leagueSchedule.gameDates
+      const known = dto.leagueSchedule.gameDates
         .flatMap((d) => d.games)
-        .filter((g) => g.gameId.startsWith(REGULAR_SEASON_PREFIX))
         .filter((g) => wnbaTeamById(g.homeTeam.teamId) && wnbaTeamById(g.awayTeam.teamId))
         // Copia solo i campi usati: il calendario intero può essere rilasciato.
         .map((g) => ({
@@ -168,11 +184,22 @@ export class WnbaLeagueSource implements LeagueSource {
           homeTeam: { teamId: g.homeTeam.teamId, teamTricode: g.homeTeam.teamTricode, score: g.homeTeam.score },
           awayTeam: { teamId: g.awayTeam.teamId, teamTricode: g.awayTeam.teamTricode, score: g.awayTeam.score },
         }));
+      const games = known.filter((g) => g.gameId.startsWith(REGULAR_SEASON_PREFIX));
+      const playoffGames = known.filter((g) => g.gameId.startsWith(PLAYOFF_PREFIX));
       if (published !== seasonYear || games.length === 0) throw new Error(`Calendario WNBA ${seasonYear} non ancora pubblicato`);
 
       const dates = games.map(gameDate).sort();
       const firstMonday = mondayOf(dates[0]);
-      return { games, firstMonday, totalWeeks: weekOf(firstMonday, dates[dates.length - 1]) };
+      const playoffWeeks = playoffGames.map((g) => weekOf(firstMonday, gameDate(g)));
+      const playoffFirstWeek = Math.min(...playoffWeeks);
+      return {
+        games,
+        firstMonday,
+        totalWeeks: weekOf(firstMonday, dates[dates.length - 1]),
+        playoffGames,
+        playoffFirstWeek,
+        playoffWeeks: playoffWeeks.length === 0 ? 0 : Math.max(...playoffWeeks) - playoffFirstWeek + 1,
+      };
     });
   }
 

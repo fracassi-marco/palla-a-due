@@ -2,11 +2,12 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link } from 'expo-router';
 import { useMemo } from 'react';
-import { RankedStat } from '../domain/entities';
+import { Match, RankedStat } from '../domain/entities';
 import { leagueInfo } from '../domain/League';
 import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCases } from '../di/container';
+import { playoffRoundMatches } from '../application/playoffRoundMatches';
 import { LeagueSelector } from '../presentation/components/LeagueSelector';
 import { PlayoffBracketView } from '../presentation/components/PlayoffBracketView';
 import { MatchCard } from '../presentation/components/MatchCard';
@@ -82,6 +83,24 @@ function Home() {
   const favoriteId = useFavoriteTeamId();
   const roundMatches = useMemo(() => favoriteFirst(matches.data ?? [], favoriteId), [matches.data, favoriteId]);
 
+  const playoffMatches = useMemo(
+    () => favoriteFirst(playoffs ? playoffRoundMatches(playoffs) : [], favoriteId),
+    [playoffs, favoriteId],
+  );
+  // Le gare di playoff di una lega che non le salva nel database hanno un id negativo: la card non si apre.
+  const carousel = (data: Match[]) => (
+    <FlatList
+      horizontal
+      data={data}
+      keyExtractor={(m) => String(m.id)}
+      showsHorizontalScrollIndicator={false}
+      snapToInterval={cardWidth + 12}
+      decelerationRate="fast"
+      contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
+      renderItem={({ item }) => <MatchCard match={item} width={cardWidth} onPress={item.id > 0 ? () => openMatch(item) : undefined} />}
+    />
+  );
+
   const standingsGroups = useMemo(() => favoriteGroupFirst(standings.data ?? [], favoriteId), [standings.data, favoriteId]);
 
   return (
@@ -107,27 +126,23 @@ function Home() {
         <SectionTitle
           title={playoffs ? 'PLAYOFF' : 'PARTITE'}
           accent={colors.cyan}
-          right={playoffs ? 'TABELLONE' : matches.data?.[0]?.dayName.toUpperCase()}
+          right={playoffs ? playoffMatches[0]?.dayName.split(' · ')[0] : matches.data?.[0]?.dayName.toUpperCase()}
         />
         {bracketLoading ? (
           <Loading />
         ) : playoffs ? (
-          <PlayoffBracketView bracket={playoffs} />
+          <>
+            {playoffMatches.length > 0 ? carousel(playoffMatches) : null}
+            <View style={playoffMatches.length > 0 ? styles.bracketGap : undefined}>
+              <PlayoffBracketView bracket={playoffs} />
+            </View>
+          </>
         ) : matches.loading ? (
           <Loading />
         ) : matches.error ? (
           <ErrorView onRetry={matches.reload} />
         ) : roundMatches.length > 0 ? (
-          <FlatList
-            horizontal
-            data={roundMatches}
-            keyExtractor={(m) => String(m.id)}
-            showsHorizontalScrollIndicator={false}
-            snapToInterval={cardWidth + 12}
-            decelerationRate="fast"
-            contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
-            renderItem={({ item }) => <MatchCard match={item} width={cardWidth} onPress={() => openMatch(item)} />}
-          />
+          carousel(roundMatches)
         ) : (
           <Empty text="Nessuna partita in programma." />
         )}
@@ -218,6 +233,7 @@ const styles = StyleSheet.create({
   heroTitle: { color: colors.bg, fontFamily: fonts.display, fontSize: 42, lineHeight: 46, letterSpacing: 1, transform: [{ skewX: '-6deg' }] },
   calendarBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: 16, marginTop: 16, paddingVertical: 12, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface },
   calendarText: { color: colors.cyan, fontFamily: fonts.display, fontSize: 20, letterSpacing: 1 },
+  bracketGap: { marginTop: 24 },
   statGrid: { gap: 12, paddingHorizontal: 16 },
   statCard: { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 60, paddingHorizontal: 14, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface },
   statIcon: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceAlt },

@@ -38,6 +38,11 @@ export class SqliteMatchRepository implements MatchRepository {
     return rows.map(toMatch);
   }
 
+  async getMatch(matchId: number): Promise<Match | null> {
+    const row = await this.db.getFirstAsync<MatchRow>(`${MATCH_SELECT} WHERE m.id = ?`, [matchId]);
+    return row ? toMatch(row) : null;
+  }
+
   async getHeadToHead(teamAId: number, teamBId: number, excludeMatchId: number, limit: number): Promise<Match[]> {
     const rows = await this.db.getAllAsync<MatchRow>(
       `${MATCH_SELECT}

@@ -29,6 +29,11 @@ export class FallbackLeagueSource implements LeagueSource {
     return this.run((source) => source.findRegularSeasons(seasonYear));
   }
 
+  /** Solo la fonte principale conosce i playoff: se si guasta non se ne ha notizia, senza passare dai backup. */
+  async findPlayoffs(seasonYear: number): Promise<Competition[]> {
+    return (await this.primary.findPlayoffs?.(seasonYear)) ?? [];
+  }
+
   getDay(competitionId: number, dayNumber: number): Promise<Match[]> {
     return this.run((source) => source.getDay(competitionId, dayNumber));
   }

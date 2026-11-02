@@ -202,6 +202,21 @@ export class SyncLeague {
       stored = found.map((competition) => ({ ...competition, totalDays: competition.totalDays ?? null }));
     }
 
+    // I playoff compaiono a calendario pubblicato e crescono con le serie: si riconsultano a ogni sincronizzazione.
+    // Un errore qui non deve fermare la Regular Season.
+    try {
+      // Un backend non aggiornato ignora la fase e risponde con la Regular Season: si tiene solo ciò che si dichiara playoff.
+      const found = await withRetry(async () => (await this.source.findPlayoffs?.(season)) ?? []);
+      const playoffs = found.filter((c) => c.phase === 'playoff');
+      for (const competition of playoffs) await this.store.saveCompetition(competition, competition.totalDays ?? null);
+      stored = [
+        ...stored.filter((c) => !playoffs.some((p) => p.id === c.id)),
+        ...playoffs.map((c) => ({ ...c, totalDays: c.totalDays ?? null })),
+      ];
+    } catch {
+      // si riprova alla prossima sincronizzazione
+    }
+
     return Promise.all(
       stored.map(async (competition) => {
         if (competition.totalDays !== null) return { id: competition.id, totalDays: competition.totalDays };

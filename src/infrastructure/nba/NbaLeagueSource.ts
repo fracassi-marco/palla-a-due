@@ -4,7 +4,7 @@ import { LeagueSource } from '../../domain/ports';
 import { HttpClient } from '../api/HttpClient';
 import { TtlCache } from '../wnba/TtlCache';
 import { BoxScoreDto, PlayerIndexDto, ScheduleDto, ScheduleGameDto, ScoreboardDto, ScoreboardGameDto } from './dto';
-import { competitionId, decodeMatchId, gameCode } from './ids';
+import { competitionId, decodeMatchId, gameCode, playoffCompetitionId } from './ids';
 import { gameDate, STATUSES, toBoxScoreSide, toMatch, toPlayer, toTeamRef } from './mappers';
 import { nbaTeamById } from './teams';
 import { weekOf } from './weeks';
@@ -40,6 +40,15 @@ const LIVE_BOX_TTL_MS = 10_000;
 /** L'anagrafica dei giocatori (280 KB) cambia solo con le firme e i tagli. */
 const PLAYER_INDEX_TTL_MS = 60 * 60_000;
 const HOUR_MS = 60 * 60_000;
+
+/** Playoff e play-in ("004", "005"): stessa struttura del calendario, in una competizione a parte. */
+const PLAYOFF_PREFIXES = ['004', '005'];
+
+/** Le partite di Regular Season e di playoff di una stagione, dal calendario ufficiale. */
+interface SeasonGames {
+  regular: ScheduleGameDto[];
+  playoff: ScheduleGameDto[];
+}
 
 /** Partite a eliminazione della NBA Cup: non contano nella Regular Season (e a calendario hanno squadre ancora da definire). */
 const CUP_KNOCKOUT = new Set(['Quarterfinal', 'Semifinal', 'Championship']);
@@ -87,7 +96,7 @@ function cached<T>(slot: Cached<T> | null, ttl: number, load: () => Promise<T>, 
 
 /** NBA dal CDN ufficiale (calendario, box score anche in diretta, anagrafica giocatori). Le "giornate" sono le settimane. */
 export class NbaLeagueSource implements LeagueSource {
-  private schedule: Cached<ScheduleGameDto[]> & { year: number } | null = null;
+  private schedule: Cached<SeasonGames> & { year: number } | null = null;
   private scoreboard: Cached<Map<string, ScoreboardGameDto>> | null = null;
   private players: Cached<Record<string, string | number | null>[]> | null = null;
   private readonly boxes = new TtlCache<BoxScoreDto>(LIVE_BOX_TTL_MS);
@@ -95,14 +104,25 @@ export class NbaLeagueSource implements LeagueSource {
   constructor(private readonly http: HttpClient) {}
 
   async findRegularSeasons(seasonYear: number): Promise<Competition[]> {
-    const games = await this.regularSeasonGames(seasonYear);
+    const { regular: games } = await this.seasonGames(seasonYear);
     const totalDays = Math.max(...games.map((g) => weekOf(seasonYear, gameDate(g))));
     return [{ id: competitionId(seasonYear), name: 'NBA', year: seasonYear, totalDays }];
   }
 
+  async findPlayoffs(seasonYear: number): Promise<Competition[]> {
+    const weeks = this.playoffWeeks((await this.seasonGames(seasonYear)).playoff, seasonYear);
+    return weeks.count === 0
+      ? []
+      : [{ id: playoffCompetitionId(seasonYear), name: 'NBA Playoff', year: seasonYear, totalDays: weeks.count, phase: 'playoff' }];
+  }
+
   async getDay(competition: number, dayNumber: number): Promise<Match[]> {
     const seasonYear = 2000 + Math.floor(competition / 10);
-    const day = (await this.regularSeasonGames(seasonYear)).filter((g) => weekOf(seasonYear, gameDate(g)) === dayNumber);
+    const { regular, playoff: playoffGames } = await this.seasonGames(seasonYear);
+    const playoff = competition === playoffCompetitionId(seasonYear);
+    // Le "giornate" di playoff sono le settimane a partire da quella della prima gara.
+    const week = playoff ? this.playoffWeeks(playoffGames, seasonYear).first + dayNumber - 1 : dayNumber;
+    const day = (playoff ? playoffGames : regular).filter((g) => weekOf(seasonYear, gameDate(g)) === week);
     const live = await this.liveGames(day);
     await this.refreshFromBoxScores(day, live);
     return day.map((game) => {
@@ -111,7 +131,7 @@ export class NbaLeagueSource implements LeagueSource {
       const update = live.get(game.gameId);
       const status = this.statusOf(game, update);
       const score = update ?? game;
-      return toMatch(
+      const match = toMatch(
         competition,
         seasonYear,
         gameDate(game),
@@ -123,6 +143,7 @@ export class NbaLeagueSource implements LeagueSource {
         { name: game.arenaName, city: game.arenaCity },
         update && { period: update.period, clock: update.gameClock },
       );
+      return playoff ? { ...match, dayNumber, dayName: `Playoff · settimana ${dayNumber}` } : match;
     });
   }
 
@@ -130,7 +151,8 @@ export class NbaLeagueSource implements LeagueSource {
     const { date, home, away } = decodeMatchId(id);
     const seasonYear = currentSeasonYear(new Date(Number(date.slice(0, 4)), Number(date.slice(4, 6)) - 1, Number(date.slice(6, 8))));
     const code = gameCode(date, home, away);
-    const game = (await this.regularSeasonGames(seasonYear)).find((g) => g.gameCode === code);
+    const { regular, playoff } = await this.seasonGames(seasonYear);
+    const game = [...regular, ...playoff].find((g) => g.gameCode === code);
     if (!game) throw new Error(`Partita ${code} non trovata nel calendario NBA`);
 
     // Prima della palla a due il file non esiste (il CDN risponde 403): niente richiesta.
@@ -200,8 +222,16 @@ export class NbaLeagueSource implements LeagueSource {
     return new Map(dto.scoreboard.games.map((g) => [g.gameId, g]));
   }
 
-  /** Partite della Regular Season ("002…") di una stagione, senza i turni a eliminazione della NBA Cup. */
-  private async regularSeasonGames(seasonYear: number): Promise<ScheduleGameDto[]> {
+  /** Prima settimana e numero di settimane (consecutive) in cui cadono le gare di playoff. */
+  private playoffWeeks(games: ScheduleGameDto[], seasonYear: number): { first: number; count: number } {
+    const weeks = games.map((g) => weekOf(seasonYear, gameDate(g)));
+    if (weeks.length === 0) return { first: 0, count: 0 };
+    const first = Math.min(...weeks);
+    return { first, count: Math.max(...weeks) - first + 1 };
+  }
+
+  /** Partite della Regular Season ("002…", senza i turni a eliminazione della NBA Cup) e dei playoff e del play-in ("004…", "005…") di una stagione. */
+  private async seasonGames(seasonYear: number): Promise<SeasonGames> {
     const slot = this.schedule?.year === seasonYear ? this.schedule : null;
     return cached(
       slot,
@@ -210,9 +240,8 @@ export class NbaLeagueSource implements LeagueSource {
         const dto = await this.http.get<ScheduleDto>(`${CDN_URL}/staticData/scheduleLeagueV2.json`);
         const published = Number(dto.leagueSchedule.seasonYear.slice(0, 4));
         if (published !== seasonYear) throw new Error(`Calendario NBA ${seasonYear}/${seasonYear + 1} non ancora pubblicato`);
-        return dto.leagueSchedule.gameDates
+        const known = dto.leagueSchedule.gameDates
           .flatMap((d) => d.games)
-          .filter((g) => g.gameId.startsWith('002') && !CUP_KNOCKOUT.has(g.gameSubLabel))
           .filter((g) => nbaTeamById(g.homeTeam.teamId) && nbaTeamById(g.awayTeam.teamId))
           // Copia solo i campi usati: il calendario intero (7 MB) può essere rilasciato.
           .map((g) => ({
@@ -226,6 +255,10 @@ export class NbaLeagueSource implements LeagueSource {
             homeTeam: { teamId: g.homeTeam.teamId, teamTricode: g.homeTeam.teamTricode, score: g.homeTeam.score },
             awayTeam: { teamId: g.awayTeam.teamId, teamTricode: g.awayTeam.teamTricode, score: g.awayTeam.score },
           }));
+        return {
+          regular: known.filter((g) => g.gameId.startsWith('002') && !CUP_KNOCKOUT.has(g.gameSubLabel)),
+          playoff: known.filter((g) => PLAYOFF_PREFIXES.some((prefix) => g.gameId.startsWith(prefix))),
+        };
       },
       (entry) => (this.schedule = entry && { ...entry, year: seasonYear }),
     );

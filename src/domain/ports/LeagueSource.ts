@@ -4,6 +4,8 @@ import { Competition, Match, MatchBoxScore, Roster } from '../entities';
 export interface LeagueSource {
   /** Competizioni della Regular Season per la stagione indicata (anno di inizio): una, o una per girone. */
   findRegularSeasons(seasonYear: number): Promise<Competition[]>;
+  /** Competizione dei playoff della stagione, se la fonte li copre e il calendario è già pubblicato; altrimenti lista vuota. */
+  findPlayoffs?(seasonYear: number): Promise<Competition[]>;
   /** Partite di una giornata; lista vuota se la giornata non esiste. */
   getDay(competitionId: number, dayNumber: number): Promise<Match[]>;
   /** Box score di una partita in corso o conclusa; vuoto se non ancora disponibile. */

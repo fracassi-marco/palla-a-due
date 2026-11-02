@@ -39,7 +39,7 @@ export class SqlitePlayerRepository implements PlayerRepository {
               o.name AS opponent_name, o.logo_url AS opponent_logo
        FROM player_games pg
        JOIN matches m ON m.id = pg.match_id AND m.status = 'finished'
-       JOIN competitions c ON c.id = m.competition_id AND c.season_year = ?
+       JOIN competitions c ON c.id = m.competition_id AND c.season_year = ? AND c.phase = 'regular'
        JOIN teams o ON o.id = CASE WHEN pg.team_id = m.home_team_id THEN m.away_team_id ELSE m.home_team_id END
        WHERE pg.player_id = ? AND pg.minutes > 0
        ORDER BY m.starts_at DESC, m.id DESC`,
@@ -74,7 +74,7 @@ export class SqlitePlayerRepository implements PlayerRepository {
   /** Posizione rispetto a tutti i giocatori della stagione, dai totali di `player_season_totals`. */
   private async getLeagueRanks(own: StatLine, seasonYear: number): Promise<LeagueRanks> {
     const rows = await this.db.getAllAsync<GameStatsRow & { games: number }>(
-      `SELECT s.* FROM player_season_totals s JOIN competitions c ON c.id = s.competition_id WHERE c.season_year = ?`,
+      `SELECT s.* FROM player_season_totals s JOIN competitions c ON c.id = s.competition_id WHERE c.season_year = ? AND c.phase = 'regular'`,
       [seasonYear],
     );
     return rankInLeague(
@@ -86,7 +86,7 @@ export class SqlitePlayerRepository implements PlayerRepository {
   async getLeagueRanking(stat: RankedStat, seasonYear: number): Promise<LeagueRankingEntry[]> {
     const rows = await this.db.getAllAsync<PlayerRow & GameStatsRow & { games: number }>(
       `SELECT s.*, pl.* FROM player_season_totals s
-       JOIN competitions c ON c.id = s.competition_id AND c.season_year = ?
+       JOIN competitions c ON c.id = s.competition_id AND c.season_year = ? AND c.phase = 'regular'
        JOIN (${PLAYER_SELECT}) pl ON pl.id = s.player_id`,
       [seasonYear],
     );
