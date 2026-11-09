@@ -3,6 +3,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useCases } from '../../di/container';
+import { localize, t } from '../../i18n';
 import { BoxScore, MatchStatus, Roster, StatLine } from '../../domain/entities';
 import { leagueInfo } from '../../domain/League';
 import { HeadToHeadSection } from '../../presentation/components/HeadToHeadSection';
@@ -33,7 +34,7 @@ export default function MatchScreen() {
   const openTeam = useOpenTeam();
   const openMatch = useOpenMatch();
   const league = leagueInfo(useLeague());
-  const shareImage = useShareImage('Condividi la partita');
+  const shareImage = useShareImage(t('match.shareGame'));
   const [side, setSide] = useState<'home' | 'away'>('home');
 
   const dataVersion = useDataVersion();
@@ -112,10 +113,10 @@ export default function MatchScreen() {
         options={{
           headerRight: () => (
             <View style={styles.headerActions}>
-              <Pressable onPress={shareAsImage} disabled={shareImage.busy} hitSlop={12} accessibilityLabel="Condividi come immagine">
+              <Pressable onPress={shareAsImage} disabled={shareImage.busy} hitSlop={12} accessibilityLabel={t('match.shareImage')}>
                 <Ionicons name="image-outline" size={24} color={shareImage.busy ? colors.textMuted : colors.orange} />
               </Pressable>
-              <Pressable onPress={share} hitSlop={12} accessibilityLabel="Condividi il risultato">
+              <Pressable onPress={share} hitSlop={12} accessibilityLabel={t('match.shareResult')}>
                 <Ionicons name="share-outline" size={24} color={colors.orange} />
               </Pressable>
             </View>
@@ -132,9 +133,9 @@ export default function MatchScreen() {
           {played ? (
             <Text style={styles.score}>{homeScore}-{awayScore}</Text>
           ) : (
-            <Text style={styles.vs}>VS</Text>
+            <Text style={styles.vs}>{t('match.vs')}</Text>
           )}
-          {live ? <Text style={styles.live}>● LIVE{matchState.data?.liveLabel ? ` · ${matchState.data.liveLabel}` : ''}</Text> : null}
+          {live ? <Text style={styles.live}>● {t('match.live')}{matchState.data?.liveLabel ? ` · ${localize(matchState.data.liveLabel)}` : ''}</Text> : null}
           <Text style={styles.date}>{formatWeekday(startsAt)} {formatDayMonth(startsAt)}</Text>
           <Text style={styles.time}>{formatTime(startsAt)}</Text>
         </View>
@@ -145,12 +146,12 @@ export default function MatchScreen() {
       </View>
 
       <View style={styles.tabs}>
-        <Tab label="CASA" name={p.homeName} active={side === 'home'} onPress={() => setSide('home')} />
-        <Tab label="OSPITI" name={p.awayName} active={side === 'away'} onPress={() => setSide('away')} />
+        <Tab label={t('match.home')} name={p.homeName} active={side === 'home'} onPress={() => setSide('home')} />
+        <Tab label={t('match.away')} name={p.awayName} active={side === 'away'} onPress={() => setSide('away')} />
       </View>
 
       {roster.loading ? (
-        <Loading label="Carico il roster…" />
+        <Loading label={t('roster.loading')} />
       ) : roster.error ? (
         <ErrorView onRetry={roster.reload} />
       ) : roster.data ? (
@@ -179,12 +180,12 @@ function topPerformers(roster: Roster | null, stats?: Record<number, StatLine>):
 }
 
 function RosterList({ roster, stats, onPlayer }: { roster: Roster; stats?: Record<number, StatLine>; onPlayer: (id: number) => void }) {
-  if (roster.players.length === 0) return <Empty text="Roster non ancora disponibile." />;
+  if (roster.players.length === 0) return <Empty text={t('roster.unavailable')} />;
   return (
     <View>
       {roster.coach ? (
         <View style={styles.coach}>
-          <Text style={styles.coachLabel}>HEAD COACH</Text>
+          <Text style={styles.coachLabel}>{t('roster.headCoach')}</Text>
           <Text style={styles.coachName}>{roster.coach.firstName} {roster.coach.lastName}</Text>
         </View>
       ) : null}

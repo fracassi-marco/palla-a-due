@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useCases } from '../../di/container';
 import { LeagueRankingEntry } from '../../domain/entities';
+import { t } from '../../i18n';
 import { isRankedStat } from '../../domain/statLines';
 import { resolveImageSource } from '../../infrastructure/images';
 import { Empty, ErrorView, Loading } from '../../presentation/components/StateViews';
@@ -34,8 +35,8 @@ export default function RankingScreen() {
     [stat, statsVersion],
   );
 
-  if (!stat) return <Empty text="Statistica sconosciuta." />;
-  if (ranking.loading) return <Loading label="Calcolo la classifica…" />;
+  if (!stat) return <Empty text={t('ranking.unknown')} />;
+  if (ranking.loading) return <Loading label={t('ranking.computing')} />;
   if (ranking.error || !ranking.data) return <ErrorView onRetry={ranking.reload} />;
 
   const { title, unit, percent } = STATS[stat];
@@ -63,7 +64,7 @@ export default function RankingScreen() {
     ) : null}
     {favoriteId !== null ? (
       <View style={styles.filter}>
-        <Text style={styles.filterLabel}>SOLO LA MIA SQUADRA</Text>
+        <Text style={styles.filterLabel}>{t('ranking.onlyMyTeam')}</Text>
         <Switch
           value={onlyFavorite}
           onValueChange={setOnlyFavorite}
@@ -78,10 +79,10 @@ export default function RankingScreen() {
       ListHeaderComponent={
         <View style={styles.header}>
           <Text style={styles.title}>{title}</Text>
-          <Text style={styles.unit}>{unit} · {entries.length} GIOCATORI</Text>
+          <Text style={styles.unit}>{unit} · {t('ranking.players', { n: entries.length })}</Text>
         </View>
       }
-      ListEmptyComponent={<Empty text="Ancora nessun giocatore classificato." />}
+      ListEmptyComponent={<Empty text={t('ranking.empty')} />}
       renderItem={({ item }) => (
         <Row
           entry={item}

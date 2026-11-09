@@ -1,6 +1,7 @@
 import { toBoxScore } from '../domain/boxScore';
 import { BoxScore, Match, MatchBoxScore } from '../domain/entities';
 import { DaySyncState, LeagueSource, LeagueStore, MatchSyncInfo } from '../domain/ports';
+import { t } from '../i18n';
 import { PoolResult, runPool, withRetry } from './pool';
 import { currentSeasonYear } from './season';
 
@@ -181,7 +182,7 @@ export class SyncLeague {
       this.lastFinishedAt = Date.now();
       if (errors.failures > 0) {
         const cause = errors.firstError ? `: ${errors.firstError.message}` : '';
-        this.update({ status: 'error', phase: null, error: `${errors.failures} richieste non riuscite${cause}` });
+        this.update({ status: 'error', phase: null, error: `${t('sync.requestsFailed', { n: errors.failures })}${cause}` });
       } else {
         this.update({ status: 'done', phase: null });
       }

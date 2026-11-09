@@ -2,6 +2,7 @@ import Constants from 'expo-constants';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useCases } from '../di/container';
+import { t } from '../i18n';
 import { SectionTitle } from '../presentation/components/SectionTitle';
 import { Empty, ErrorView, Loading } from '../presentation/components/StateViews';
 import { TeamLogo } from '../presentation/components/TeamLogo';
@@ -19,16 +20,16 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView style={styles.root} contentContainerStyle={{ paddingBottom: 40 }}>
-      <SectionTitle title="SQUADRA PREFERITA" accent={colors.orange} />
+      <SectionTitle title={t('settings.favoriteTeam')} accent={colors.orange} />
       {standings.loading ? (
         <Loading />
       ) : standings.error ? (
         <ErrorView onRetry={standings.reload} />
       ) : teams.length === 0 ? (
-        <Empty text="Nessuna squadra disponibile." />
+        <Empty text={t('settings.noTeams')} />
       ) : (
         <View style={styles.list}>
-          <TeamOption label="Nessuna" selected={favoriteId === null} onPress={() => setFavoriteTeam(null)} />
+          <TeamOption label={t('settings.none')} selected={favoriteId === null} onPress={() => setFavoriteTeam(null)} />
           {teams.map((t) => (
             <TeamOption
               key={t.id}
@@ -41,9 +42,9 @@ export default function SettingsScreen() {
         </View>
       )}
 
-      <SectionTitle title="INFO" accent={colors.cyan} />
+      <SectionTitle title={t('settings.info')} accent={colors.cyan} />
       <View style={[styles.list, styles.row]}>
-        <Text style={styles.label}>Versione</Text>
+        <Text style={styles.label}>{t('settings.version')}</Text>
         <Text style={styles.value}>{Constants.expoConfig?.version ?? '—'}</Text>
       </View>
     </ScrollView>

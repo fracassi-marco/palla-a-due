@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useCases } from '../di/container';
+import { localize, t } from '../i18n';
 import { MatchCard } from '../presentation/components/MatchCard';
 import { Empty, ErrorView, Loading } from '../presentation/components/StateViews';
 import { useAsync } from '../presentation/hooks/useAsync';
@@ -40,9 +41,9 @@ function DayMatches({ competitionIds, day }: { competitionIds: number[]; day: nu
       contentContainerStyle={styles.list}
       refreshControl={<RefreshControl refreshing={matches.refreshing} onRefresh={matches.reload} tintColor={colors.orange} />}
       ListHeaderComponent={
-        matches.data?.[0] ? <Text style={styles.dayTitle}>{matches.data[0].dayName.toUpperCase()}</Text> : undefined
+        matches.data?.[0] ? <Text style={styles.dayTitle}>{localize(matches.data[0].dayName).toUpperCase()}</Text> : undefined
       }
-      ListEmptyComponent={<Empty text="Nessuna partita in questa giornata." />}
+      ListEmptyComponent={<Empty text={t('calendar.noGames')} />}
       renderItem={({ item }) => <MatchCard match={item} onPress={() => openMatch(item)} />}
     />
   );
@@ -84,7 +85,7 @@ export default function CalendarScreen() {
           const current = item === overview.data!.initialDay;
           return (
             <Pressable onPress={() => setSelected(item)} style={[styles.chip, active && styles.chipActive]}>
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>G{item}</Text>
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>{t('calendar.chip', { n: item })}</Text>
               {current ? <View style={[styles.currentDot, active && { backgroundColor: colors.bg }]} /> : null}
             </Pressable>
           );

@@ -2,6 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Player, StatLine } from '../../domain/entities';
+import { t } from '../../i18n';
 import { resolveImageSource } from '../../infrastructure/images';
 import { colors, fonts, radius } from '../theme';
 
@@ -37,22 +38,22 @@ export function PlayerRow({ player, stats, onPress }: { player: Player; stats?: 
 
 function GameStats({ line }: { line: StatLine }) {
   if (line.minutes === 0 && line.points === 0 && line.fouls === 0) {
-    return <Text style={styles.dnp}>NON HA GIOCATO</Text>;
+    return <Text style={styles.dnp}>{t('boxScore.didNotPlay')}</Text>;
   }
   return (
     <View style={styles.stats}>
       <View style={styles.main}>
-        <Stat label="MIN" value={String(line.minutes)} />
-        <Stat label="PT" value={String(line.points)} highlight />
-        <Stat label="RB" value={String(line.totalRebounds)} />
-        <Stat label="AS" value={String(line.assists)} />
-        <Stat label="VAL" value={String(line.rating)} />
+        <Stat label={t('boxScore.minutes')} value={String(line.minutes)} />
+        <Stat label={t('boxScore.points')} value={String(line.points)} highlight />
+        <Stat label={t('boxScore.rebounds')} value={String(line.totalRebounds)} />
+        <Stat label={t('boxScore.assists')} value={String(line.assists)} />
+        <Stat label={t('boxScore.rating')} value={String(line.rating)} />
       </View>
       <Text style={styles.detail}>
-        2P {line.twoMade}/{line.twoAttempted} · 3P {line.threeMade}/{line.threeAttempted} · TL {line.freeThrowsMade}/{line.freeThrowsAttempted}
+        {t('boxScore.twoPoint')} {line.twoMade}/{line.twoAttempted} · {t('boxScore.threePoint')} {line.threeMade}/{line.threeAttempted} · {t('boxScore.freeThrow')} {line.freeThrowsMade}/{line.freeThrowsAttempted}
       </Text>
       <Text style={styles.detail}>
-        PR {line.steals} · PP {line.turnovers} · ST {line.blocks} · FL {line.fouls}
+        {t('boxScore.steals')} {line.steals} · {t('boxScore.turnovers')} {line.turnovers} · {t('boxScore.blocks')} {line.blocks} · {t('boxScore.fouls')} {line.fouls}
       </Text>
     </View>
   );

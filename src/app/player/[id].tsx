@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useCases } from '../../di/container';
+import { ordinal, t } from '../../i18n';
 import { GameLogEntry, LeagueRanks, PlayerProfile, RankedStat } from '../../domain/entities';
 import { resolveImageSource } from '../../infrastructure/images';
 import { SectionTitle } from '../../presentation/components/SectionTitle';
@@ -20,7 +21,7 @@ export default function PlayerScreen() {
   const statsVersion = useStatsVersion();
   const profile = useAsync(() => useCases.getPlayerProfile.execute(Number(id)), [id, statsVersion]);
 
-  if (profile.loading) return <Loading label="Carico le statistiche…" />;
+  if (profile.loading) return <Loading label={t('player.loading')} />;
   if (profile.error || !profile.data) return <ErrorView onRetry={profile.reload} />;
   return <Profile profile={profile.data} />;
 }
@@ -59,59 +60,59 @@ function Profile({ profile }: { profile: PlayerProfile }) {
       <View style={styles.bio}>
         {player.heightCm ? <Bio icon="resize" text={`${player.heightCm} cm`} /> : null}
         {player.weightKg ? <Bio icon="barbell" text={`${player.weightKg} kg`} /> : null}
-        {age !== null ? <Bio icon="calendar" text={`${age} anni`} /> : null}
+        {age !== null ? <Bio icon="calendar" text={t('player.years', { n: age })} /> : null}
         {player.country ? <Bio icon="flag" text={player.country} /> : null}
       </View>
 
-      <SectionTitle title="MEDIE" accent={colors.yellow} right={`STAGIONE ${season}`} />
+      <SectionTitle title={t('player.averages')} accent={colors.yellow} right={t('player.season', { season })} />
       {a ? (
         <View style={{ paddingHorizontal: 16, gap: 10 }}>
           <View style={styles.tiles}>
-            <StatTile big label="PUNTI" value={one(a.points)} {...rank('points')} accent={colors.orange} />
-            <StatTile big label="RIMBALZI" value={one(a.totalRebounds)} {...rank('totalRebounds')} accent={colors.cyan} />
-            <StatTile big label="ASSIST" value={one(a.assists)} {...rank('assists')} accent={colors.pink} />
+            <StatTile big label={t('player.points')} value={one(a.points)} {...rank('points')} accent={colors.orange} />
+            <StatTile big label={t('player.rebounds')} value={one(a.totalRebounds)} {...rank('totalRebounds')} accent={colors.cyan} />
+            <StatTile big label={t('player.assists')} value={one(a.assists)} {...rank('assists')} accent={colors.pink} />
           </View>
           <View style={styles.tiles}>
-            <StatTile label="VAL" value={one(a.rating)} {...rank('rating')} accent={colors.yellow} />
-            <StatTile label="MIN" value={one(a.minutes)} {...rank('minutes')} accent={colors.text} />
-            <StatTile label="PARTITE" value={String(totals?.matches ?? a.matches)} accent={colors.text} />
+            <StatTile label={t('player.rating')} value={one(a.rating)} {...rank('rating')} accent={colors.yellow} />
+            <StatTile label={t('player.minutes')} value={one(a.minutes)} {...rank('minutes')} accent={colors.text} />
+            <StatTile label={t('player.games')} value={String(totals?.matches ?? a.matches)} accent={colors.text} />
           </View>
           <View style={styles.tiles}>
             <StatTile label="2P%" value={percent(a.twoMade, a.twoAttempted)} {...rank('twoPercent')} accent={colors.green} />
             <StatTile label="3P%" value={percent(a.threeMade, a.threeAttempted)} {...rank('threePercent')} accent={colors.green} />
-            <StatTile label="TL%" value={percent(a.freeThrowsMade, a.freeThrowsAttempted)} {...rank('freeThrowPercent')} accent={colors.green} />
+            <StatTile label={t('teamStats.freeThrowPercent')} value={percent(a.freeThrowsMade, a.freeThrowsAttempted)} {...rank('freeThrowPercent')} accent={colors.green} />
           </View>
           <View style={styles.tiles}>
-            <StatTile label="RUBATE" value={one(a.steals)} {...rank('steals')} accent={colors.cyan} />
-            <StatTile label="STOPPATE" value={one(a.blocks)} {...rank('blocks')} accent={colors.cyan} />
-            <StatTile label="PERSE" value={one(a.turnovers)} {...rank('turnovers')} accent={colors.red} />
+            <StatTile label={t('player.steals')} value={one(a.steals)} {...rank('steals')} accent={colors.cyan} />
+            <StatTile label={t('player.blocks')} value={one(a.blocks)} {...rank('blocks')} accent={colors.cyan} />
+            <StatTile label={t('player.turnovers')} value={one(a.turnovers)} {...rank('turnovers')} accent={colors.red} />
           </View>
         </View>
       ) : (
-        <Empty text="Nessuna statistica per questa stagione." />
+        <Empty text={t('player.noStats')} />
       )}
 
       {highs ? (
         <>
-          <SectionTitle title="CAREER NIGHT" accent={colors.pink} right="MASSIMI STAGIONE" />
+          <SectionTitle title={t('player.careerNight')} accent={colors.pink} right={t('player.seasonHighs')} />
           <View style={[styles.tiles, { paddingHorizontal: 16 }]}>
-            <StatTile label="PUNTI" value={String(highs.points)} accent={colors.orange} />
-            <StatTile label="RIMB" value={String(highs.totalRebounds)} accent={colors.cyan} />
-            <StatTile label="AST" value={String(highs.assists)} accent={colors.pink} />
-            <StatTile label="VAL" value={String(highs.rating)} accent={colors.yellow} />
+            <StatTile label={t('player.highPoints')} value={String(highs.points)} accent={colors.orange} />
+            <StatTile label={t('player.highRebounds')} value={String(highs.totalRebounds)} accent={colors.cyan} />
+            <StatTile label={t('player.highAssists')} value={String(highs.assists)} accent={colors.pink} />
+            <StatTile label={t('player.rating')} value={String(highs.rating)} accent={colors.yellow} />
           </View>
         </>
       ) : null}
 
-      <SectionTitle title="ULTIME PARTITE" accent={colors.cyan} />
-      {gameLog.length > 0 ? gameLog.map((g) => <GameRow key={g.matchId} game={g} />) : <Empty text="Ancora nessuna partita giocata." />}
+      <SectionTitle title={t('player.recentGames')} accent={colors.cyan} />
+      {gameLog.length > 0 ? gameLog.map((g) => <GameRow key={g.matchId} game={g} />) : <Empty text={t('player.noGames')} />}
     </ScrollView>
   );
 }
 
 function hint(ranks: LeagueRanks, stat: RankedStat): string | undefined {
   const r = ranks[stat];
-  return r ? `${r.position}° / ${r.of}` : undefined;
+  return r ? t('player.rank', { pos: ordinal(r.position), of: r.of }) : undefined;
 }
 
 function Bio({ icon, text }: { icon: keyof typeof Ionicons.glyphMap; text: string }) {
@@ -128,17 +129,17 @@ function GameRow({ game }: { game: GameLogEntry }) {
   return (
     <View style={styles.game}>
       <View style={[styles.result, { backgroundColor: game.won ? colors.green : colors.red }]}>
-        <Text style={styles.resultText}>{game.won ? 'V' : 'S'}</Text>
+        <Text style={styles.resultText}>{t(game.won ? 'player.win' : 'player.loss')}</Text>
       </View>
       <TeamLogo uri={game.opponentLogoUrl} name={game.opponentName} size={32} />
       <View style={{ flex: 1 }}>
-        <Text style={styles.gameOpp} numberOfLines={1}>{game.isHome ? 'vs' : '@'} {game.opponentName}</Text>
+        <Text style={styles.gameOpp} numberOfLines={1}>{game.isHome ? t('player.versus') : t('player.at')} {game.opponentName}</Text>
         <Text style={styles.gameMeta}>{formatDayMonth(game.date)} · {game.teamScore}-{game.opponentScore}</Text>
       </View>
       <View style={styles.gameStats}>
-        <GameStat v={l.points} k="PT" color={colors.orange} />
-        <GameStat v={l.totalRebounds} k="RB" color={colors.cyan} />
-        <GameStat v={l.assists} k="AS" color={colors.pink} />
+        <GameStat v={l.points} k={t('boxScore.points')} color={colors.orange} />
+        <GameStat v={l.totalRebounds} k={t('boxScore.rebounds')} color={colors.cyan} />
+        <GameStat v={l.assists} k={t('boxScore.assists')} color={colors.pink} />
       </View>
     </View>
   );

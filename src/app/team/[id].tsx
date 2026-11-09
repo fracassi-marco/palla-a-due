@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useCases } from '../../di/container';
+import { t } from '../../i18n';
 import { PlayerRow } from '../../presentation/components/PlayerRow';
 import { SectionTitle } from '../../presentation/components/SectionTitle';
 import { Empty, ErrorView, Loading } from '../../presentation/components/StateViews';
@@ -27,16 +28,16 @@ export default function TeamScreen() {
         <Text style={styles.name}>{p.name}</Text>
       </View>
       {stats.data ? <TeamStatsSection stats={stats.data} /> : null}
-      <SectionTitle title="ROSTER" accent={colors.cyan} />
+      <SectionTitle title={t('roster.title')} accent={colors.cyan} />
       {roster.loading ? (
-        <Loading label="Carico il roster…" />
+        <Loading label={t('roster.loading')} />
       ) : roster.error ? (
         <ErrorView onRetry={roster.reload} />
       ) : roster.data && roster.data.players.length > 0 ? (
         <View>
           {roster.data.coach ? (
             <View style={styles.coach}>
-              <Text style={styles.coachLabel}>HEAD COACH</Text>
+              <Text style={styles.coachLabel}>{t('roster.headCoach')}</Text>
               <Text style={styles.coachName}>{roster.data.coach.firstName} {roster.data.coach.lastName}</Text>
             </View>
           ) : null}
@@ -45,7 +46,7 @@ export default function TeamScreen() {
           ))}
         </View>
       ) : (
-        <Empty text="Roster non ancora disponibile." />
+        <Empty text={t('roster.unavailable')} />
       )}
     </ScrollView>
   );

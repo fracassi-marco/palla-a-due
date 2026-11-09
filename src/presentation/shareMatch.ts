@@ -1,5 +1,6 @@
 import { Share } from 'react-native';
 import { MatchStatus } from '../domain/entities';
+import { t } from '../i18n';
 import { formatDayMonth, formatTime, formatWeekday } from './theme/format';
 
 interface ShareableMatch {
@@ -15,11 +16,11 @@ export function matchShareText(m: ShareableMatch): string {
   const when = `${formatWeekday(m.startsAt)} ${formatDayMonth(m.startsAt)}`;
   const lines = ['🏀 LEGA BASKET SERIE A'];
   if (m.status === 'scheduled') {
-    lines.push(`${m.homeName} vs ${m.awayName}`, `${when} · ore ${formatTime(m.startsAt)}`);
+    lines.push(`${m.homeName} vs ${m.awayName}`, `${when} · ${t('share.at', { time: formatTime(m.startsAt) })}`);
   } else {
-    lines.push(`${m.homeName} ${m.homeScore}-${m.awayScore} ${m.awayName}`, m.status === 'live' ? `🔴 LIVE · ${when}` : `Finale · ${when}`);
+    lines.push(`${m.homeName} ${m.homeScore}-${m.awayScore} ${m.awayName}`, m.status === 'live' ? `🔴 ${t('match.live')} · ${when}` : `${t('share.final')} · ${when}`);
   }
-  lines.push('', 'via Palla a Due');
+  lines.push('', t('share.via'));
   return lines.join('\n');
 }
 

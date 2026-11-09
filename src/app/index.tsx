@@ -4,6 +4,7 @@ import { Link } from 'expo-router';
 import { useMemo } from 'react';
 import { Match, RankedStat } from '../domain/entities';
 import { leagueInfo } from '../domain/League';
+import { localize, t } from '../i18n';
 import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCases } from '../di/container';
@@ -78,7 +79,7 @@ function Home() {
   const hasLive = matches.data?.some((m) => m.status === 'live') ?? false;
   usePolling(() => void useCases.sync.start({ minIntervalMs: LIVE_SYNC_MS / 2 }), hasLive, LIVE_SYNC_MS);
 
-  const shareImage = useShareImage('Condividi la classifica');
+  const shareImage = useShareImage(t('home.shareStandings'));
   const openMatch = useOpenMatch();
   const favoriteId = useFavoriteTeamId();
   const roundMatches = useMemo(() => favoriteFirst(matches.data ?? [], favoriteId), [matches.data, favoriteId]);
@@ -115,7 +116,7 @@ function Home() {
           <Text style={styles.heroKicker}>{league.title}</Text>
           <Text style={styles.heroTitle}>PALLA A DUE</Text>
           <Link href="/settings" asChild>
-            <Pressable hitSlop={12} style={styles.settingsBtn} accessibilityLabel="Impostazioni">
+            <Pressable hitSlop={12} style={styles.settingsBtn} accessibilityLabel={t('home.settings')}>
               <Ionicons name="settings-outline" size={22} color={colors.bg} />
             </Pressable>
           </Link>
@@ -124,9 +125,9 @@ function Home() {
         <LeagueSelector />
 
         <SectionTitle
-          title={playoffs ? 'PLAYOFF' : 'PARTITE'}
+          title={playoffs ? t('home.playoffs') : t('home.games')}
           accent={colors.cyan}
-          right={playoffs ? playoffMatches[0]?.dayName.split(' · ')[0] : matches.data?.[0]?.dayName.toUpperCase()}
+          right={playoffs ? playoffMatches[0] && localize(playoffMatches[0].dayName).split(' · ')[0] : matches.data?.[0] && localize(matches.data[0].dayName).toUpperCase()}
         />
         {bracketLoading ? (
           <Loading />
@@ -144,16 +145,16 @@ function Home() {
         ) : roundMatches.length > 0 ? (
           carousel(roundMatches)
         ) : (
-          <Empty text="Nessuna partita in programma." />
+          <Empty text={t('home.noGames')} />
         )}
         <Link href="/calendar" asChild>
           <Pressable style={styles.calendarBtn}>
             <Ionicons name="calendar-outline" size={18} color={colors.cyan} />
-            <Text style={styles.calendarText}>TUTTO IL CALENDARIO</Text>
+            <Text style={styles.calendarText}>{t('home.fullCalendar')}</Text>
           </Pressable>
         </Link>
 
-        <SectionTitle title="CLASSIFICA" accent={colors.orange} right="REGULAR SEASON" />
+        <SectionTitle title={t('home.standings')} accent={colors.orange} right={t('home.regularSeason')} />
         {standings.loading ? (
           <Loading />
         ) : standings.error ? (
@@ -163,13 +164,13 @@ function Home() {
             {standingsGroups.map((group) => (
               <View key={`${group.competitionId}:${group.name}`} style={styles.group}>
                 <View style={styles.groupHead}>
-                  <Text style={styles.groupTitle}>{standings.data!.length > 1 ? group.name.toUpperCase() : ''}</Text>
+                  <Text style={styles.groupTitle}>{standings.data!.length > 1 ? localize(group.name).toUpperCase() : ''}</Text>
                   <Pressable
                     onPress={() =>
                       shareImage.share(
                         <StandingsShareCard
                           leagueTitle={league.title}
-                          groupName={standings.data!.length > 1 ? group.name : null}
+                          groupName={standings.data!.length > 1 ? localize(group.name) : null}
                           standings={group.standings}
                           byWinPercentage={league.byWinPercentage ?? false}
                         />,
@@ -177,7 +178,7 @@ function Home() {
                     }
                     disabled={shareImage.busy}
                     hitSlop={12}
-                    accessibilityLabel="Condividi la classifica come immagine"
+                    accessibilityLabel={t('home.shareStandingsImage')}
                   >
                     <Ionicons name="image-outline" size={22} color={shareImage.busy ? colors.textMuted : colors.orange} />
                   </Pressable>
@@ -187,16 +188,16 @@ function Home() {
             ))}
             {league.playoffSpots > 0 ? (
               <View style={styles.legend}>
-                <LegendDot color={colors.green} label="Playoff" />
-                <LegendDot color={colors.orange} label={league.playInSpots ? 'Play-in' : 'Zona playoff'} />
-                {league.relegationSpots > 0 ? <LegendDot color={colors.red} label="Retrocessione" /> : null}
+                <LegendDot color={colors.green} label={t('home.legendPlayoff')} />
+                <LegendDot color={colors.orange} label={league.playInSpots ? t('home.legendPlayIn') : t('home.legendPlayoffZone')} />
+                {league.relegationSpots > 0 ? <LegendDot color={colors.red} label={t('home.legendRelegation')} /> : null}
               </View>
             ) : null}
           </>
         ) : (
-          <Empty text="Classifica non ancora disponibile." />
+          <Empty text={t('home.noStandings')} />
         )}
-        <SectionTitle title="STATISTICHE GIOCATORI" accent={colors.yellow} right="LEADER DI LEGA" />
+        <SectionTitle title={t('home.playerStats')} accent={colors.yellow} right={t('home.leagueLeaders')} />
         <View style={styles.statGrid}>
           {HOME_STATS.map((stat) => (
             <Link key={stat} href={{ pathname: '/ranking/[stat]', params: { stat } }} asChild>

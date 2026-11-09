@@ -9,6 +9,7 @@ import { useEffect } from 'react';
 import { AppState, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCases, warmUpLeagues } from '../di/container';
+import { t } from '../i18n';
 import { LeagueSelector } from '../presentation/components/LeagueSelector';
 import { Loading } from '../presentation/components/StateViews';
 import { FirstSync, SyncBar } from '../presentation/components/SyncProgress';
@@ -62,17 +63,17 @@ export default function RootLayout() {
           headerTintColor: colors.orange,
           headerTitleStyle: { fontFamily: fonts.display, fontSize: 24, color: colors.text },
           headerShadowVisible: false,
-          headerBackTitle: 'Indietro',
+          headerBackTitle: t('nav.back'),
           contentStyle: { backgroundColor: colors.bg },
         }}
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="calendar" options={{ title: 'CALENDARIO' }} />
-        <Stack.Screen name="settings" options={{ title: 'IMPOSTAZIONI' }} />
-        <Stack.Screen name="match/[id]" options={{ title: 'PARTITA' }} />
-        <Stack.Screen name="team/[id]" options={{ title: 'SQUADRA' }} />
-        <Stack.Screen name="player/[id]" options={{ title: 'GIOCATORE' }} />
-        <Stack.Screen name="ranking/[stat]" options={{ title: 'CLASSIFICA' }} />
+        <Stack.Screen name="calendar" options={{ title: t('screen.calendar') }} />
+        <Stack.Screen name="settings" options={{ title: t('screen.settings') }} />
+        <Stack.Screen name="match/[id]" options={{ title: t('screen.match') }} />
+        <Stack.Screen name="team/[id]" options={{ title: t('screen.team') }} />
+        <Stack.Screen name="player/[id]" options={{ title: t('screen.player') }} />
+        <Stack.Screen name="ranking/[stat]" options={{ title: t('screen.ranking') }} />
       </Stack>
       <SyncBar state={sync} />
     </View>

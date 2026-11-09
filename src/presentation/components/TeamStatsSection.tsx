@@ -1,11 +1,12 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { RankedValue, TeamResult, TeamStats } from '../../domain/entities';
+import { ordinal, t } from '../../i18n';
 import { colors, fonts, radius } from '../theme';
 import { formatDayMonth, one } from '../theme/format';
 import { SectionTitle } from './SectionTitle';
 import { StatTile } from './StatTile';
 
-const rankHint = (r: RankedValue) => (r.position ? `${r.position}° IN LEGA` : undefined);
+const rankHint = (r: RankedValue) => (r.position ? t('teamStats.inLeague', { pos: ordinal(r.position) }) : undefined);
 const record = (r: { wins: number; losses: number }) => `${r.wins}-${r.losses}`;
 const pct = (v: number | null) => (v === null ? '–' : `${Math.round(v)}%`);
 const signed = (v: number) => `${v > 0 ? '+' : ''}${one(v)}`;
@@ -14,66 +15,66 @@ export function TeamStatsSection({ stats: s }: { stats: TeamStats }) {
   const season = `${s.seasonYear}/${String(s.seasonYear + 1).slice(2)}`;
   return (
     <View>
-      <SectionTitle title="STATISTICHE" accent={colors.yellow} right={`STAGIONE ${season}`} />
+      <SectionTitle title={t('teamStats.title')} accent={colors.yellow} right={t('player.season', { season })} />
       <View style={styles.block}>
         <View style={styles.tiles}>
-          <StatTile big label="POSIZIONE" value={s.position ? `${s.position}°` : '–'} accent={colors.yellow} />
-          <StatTile big label="VINTE" value={String(s.wins)} accent={colors.green} />
-          <StatTile big label="PERSE" value={String(s.losses)} accent={colors.red} />
+          <StatTile big label={t('teamStats.position')} value={s.position ? ordinal(s.position) : '–'} accent={colors.yellow} />
+          <StatTile big label={t('teamStats.wins')} value={String(s.wins)} accent={colors.green} />
+          <StatTile big label={t('teamStats.losses')} value={String(s.losses)} accent={colors.red} />
         </View>
         <View style={styles.tiles}>
-          <StatTile label="IN CASA" value={record(s.home)} hint="V-P" accent={colors.orange} />
-          <StatTile label="IN TRASFERTA" value={record(s.away)} hint="V-P" accent={colors.cyan} />
+          <StatTile label={t('teamStats.home')} value={record(s.home)} hint={t('teamStats.record')} accent={colors.orange} />
+          <StatTile label={t('teamStats.away')} value={record(s.away)} hint={t('teamStats.record')} accent={colors.cyan} />
           <StatTile
-            label="STRISCIA"
-            value={s.streak ? `${s.streak.length}${s.streak.won ? 'V' : 'S'}` : '–'}
-            hint={s.streak ? (s.streak.won ? 'POSITIVA' : 'NEGATIVA') : undefined}
+            label={t('teamStats.streak')}
+            value={s.streak ? `${s.streak.length}${t(s.streak.won ? 'teamStats.streakWin' : 'teamStats.streakLoss')}` : '–'}
+            hint={s.streak ? t(s.streak.won ? 'teamStats.streakPositive' : 'teamStats.streakNegative') : undefined}
             accent={s.streak?.won === false ? colors.red : colors.green}
           />
         </View>
         {s.form.length > 0 ? <Form results={s.form} /> : null}
       </View>
 
-      <SectionTitle title="ATTACCO E DIFESA" accent={colors.orange} />
+      <SectionTitle title={t('teamStats.offenseDefense')} accent={colors.orange} />
       <View style={styles.block}>
         <View style={styles.tiles}>
-          <StatTile big label="PUNTI FATTI" value={one(s.avgPointsFor.value)} hint={rankHint(s.avgPointsFor)} accent={colors.orange} />
-          <StatTile big label="PUNTI SUBITI" value={one(s.avgPointsAgainst.value)} hint={rankHint(s.avgPointsAgainst)} accent={colors.cyan} />
+          <StatTile big label={t('teamStats.pointsFor')} value={one(s.avgPointsFor.value)} hint={rankHint(s.avgPointsFor)} accent={colors.orange} />
+          <StatTile big label={t('teamStats.pointsAgainst')} value={one(s.avgPointsAgainst.value)} hint={rankHint(s.avgPointsAgainst)} accent={colors.cyan} />
         </View>
         <View style={styles.tiles}>
-          <StatTile label="DIFF. MEDIA" value={signed(s.avgMargin)} accent={s.avgMargin >= 0 ? colors.green : colors.red} />
-          <StatTile label="VALUTAZIONE" value={one(s.rating)} accent={colors.yellow} />
+          <StatTile label={t('teamStats.avgMargin')} value={signed(s.avgMargin)} accent={s.avgMargin >= 0 ? colors.green : colors.red} />
+          <StatTile label={t('teamStats.rating')} value={one(s.rating)} accent={colors.yellow} />
         </View>
       </View>
 
-      <SectionTitle title="MEDIE A PARTITA" accent={colors.cyan} />
+      <SectionTitle title={t('teamStats.perGame')} accent={colors.cyan} />
       <View style={styles.block}>
         <View style={styles.tiles}>
-          <StatTile big label="RIMBALZI" value={one(s.totalRebounds.value)} hint={rankHint(s.totalRebounds)} accent={colors.cyan} />
-          <StatTile big label="ASSIST" value={one(s.assists.value)} hint={rankHint(s.assists)} accent={colors.pink} />
+          <StatTile big label={t('teamStats.rebounds')} value={one(s.totalRebounds.value)} hint={rankHint(s.totalRebounds)} accent={colors.cyan} />
+          <StatTile big label={t('teamStats.assists')} value={one(s.assists.value)} hint={rankHint(s.assists)} accent={colors.pink} />
         </View>
         <View style={styles.tiles}>
-          <StatTile label="RIMB. OFF" value={one(s.offensiveRebounds)} accent={colors.cyan} />
-          <StatTile label="RIMB. DIF" value={one(s.defensiveRebounds)} accent={colors.cyan} />
-          <StatTile label="FALLI" value={one(s.fouls)} accent={colors.textMuted} />
+          <StatTile label={t('teamStats.offensiveRebounds')} value={one(s.offensiveRebounds)} accent={colors.cyan} />
+          <StatTile label={t('teamStats.defensiveRebounds')} value={one(s.defensiveRebounds)} accent={colors.cyan} />
+          <StatTile label={t('teamStats.fouls')} value={one(s.fouls)} accent={colors.textMuted} />
         </View>
         <View style={styles.tiles}>
-          <StatTile label="RUBATE" value={one(s.steals)} accent={colors.cyan} />
-          <StatTile label="STOPPATE" value={one(s.blocks)} accent={colors.cyan} />
-          <StatTile label="PERSE" value={one(s.turnovers)} accent={colors.red} />
+          <StatTile label={t('teamStats.steals')} value={one(s.steals)} accent={colors.cyan} />
+          <StatTile label={t('teamStats.blocks')} value={one(s.blocks)} accent={colors.cyan} />
+          <StatTile label={t('teamStats.turnovers')} value={one(s.turnovers)} accent={colors.red} />
         </View>
         <View style={styles.tiles}>
           <StatTile label="2P%" value={pct(s.twoPercent)} accent={colors.green} />
           <StatTile label="3P%" value={pct(s.threePercent)} accent={colors.green} />
-          <StatTile label="TL%" value={pct(s.freeThrowPercent)} accent={colors.green} />
+          <StatTile label={t('teamStats.freeThrowPercent')} value={pct(s.freeThrowPercent)} accent={colors.green} />
         </View>
       </View>
 
-      <SectionTitle title="RECORD STAGIONE" accent={colors.pink} />
+      <SectionTitle title={t('teamStats.records')} accent={colors.pink} />
       <View style={styles.records}>
-        <RecordRow label="MAGGIOR VITTORIA" result={s.biggestWin} />
-        <RecordRow label="MAGGIOR SCONFITTA" result={s.biggestLoss} />
-        <RecordRow label="PUNTEGGIO PIÙ ALTO" result={s.highestScore} />
+        <RecordRow label={t('teamStats.biggestWin')} result={s.biggestWin} />
+        <RecordRow label={t('teamStats.biggestLoss')} result={s.biggestLoss} />
+        <RecordRow label={t('teamStats.highestScore')} result={s.highestScore} />
       </View>
     </View>
   );
@@ -82,10 +83,10 @@ export function TeamStatsSection({ stats: s }: { stats: TeamStats }) {
 function Form({ results }: { results: TeamResult[] }) {
   return (
     <View style={styles.form}>
-      <Text style={styles.formLabel}>ULTIME {results.length}</Text>
+      <Text style={styles.formLabel}>{t('teamStats.form', { n: results.length })}</Text>
       {results.map((r) => (
         <View key={r.matchId} style={[styles.chip, { backgroundColor: r.won ? colors.green : colors.red }]}>
-          <Text style={styles.chipText}>{r.won ? 'V' : 'S'}</Text>
+          <Text style={styles.chipText}>{t(r.won ? 'teamStats.streakWin' : 'teamStats.streakLoss')}</Text>
         </View>
       ))}
     </View>
@@ -99,7 +100,7 @@ function RecordRow({ label, result }: { label: string; result: TeamResult | null
       <View style={{ flex: 1 }}>
         <Text style={styles.recordLabel}>{label}</Text>
         <Text style={styles.recordOpp}>
-          {result.isHome ? 'vs' : '@'} {result.opponentName} · {formatDayMonth(result.date)}
+          {result.isHome ? t('player.versus') : t('player.at')} {result.opponentName} · {formatDayMonth(result.date)}
         </Text>
       </View>
       <Text style={styles.recordScore}>

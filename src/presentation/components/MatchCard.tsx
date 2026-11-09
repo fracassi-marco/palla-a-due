@@ -1,6 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Match } from '../../domain/entities';
+import { localize, t } from '../../i18n';
 import { colors, fonts, radius } from '../theme';
 import { formatDayMonth, formatTime, formatWeekday } from '../theme/format';
 import { TeamLogo } from './TeamLogo';
@@ -18,11 +19,11 @@ export function MatchCard({ match, onPress, width }: Props) {
     <Pressable onPress={onPress} style={({ pressed }) => [{ width }, pressed && styles.pressed]}>
       <LinearGradient colors={[colors.surfaceAlt, colors.surface]} style={styles.card}>
         <View style={styles.top}>
-          <Text style={styles.day}>{match.dayName.toUpperCase()}</Text>
+          <Text style={styles.day}>{localize(match.dayName).toUpperCase()}</Text>
           {live ? (
             <View style={styles.livePill}>
               <View style={styles.liveDot} />
-              <Text style={styles.liveText}>{match.liveLabel ? `LIVE · ${match.liveLabel}` : 'LIVE'}</Text>
+              <Text style={styles.liveText}>{match.liveLabel ? `${t('match.live')} · ${localize(match.liveLabel)}` : t('match.live')}</Text>
             </View>
           ) : null}
         </View>
@@ -35,7 +36,7 @@ export function MatchCard({ match, onPress, width }: Props) {
                 {match.homeScore ?? 0}-{match.awayScore ?? 0}
               </Text>
             ) : (
-              <Text style={styles.vs}>VS</Text>
+              <Text style={styles.vs}>{t('match.vs')}</Text>
             )}
           </View>
           <TeamSide name={match.away.name} logo={match.away.logoUrl} code={match.away.code} />

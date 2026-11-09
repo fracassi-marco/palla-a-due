@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { Standing } from '../../domain/entities';
+import { t } from '../../i18n';
 import { TeamLogo } from '../components/TeamLogo';
 import { colors, fonts, radius } from '../theme';
 import { ShareFrame } from './ShareFrame';
@@ -16,15 +17,15 @@ interface Props {
 export function StandingsShareCard({ leagueTitle, groupName, standings, byWinPercentage }: Props) {
   return (
     <ShareFrame kicker={groupName ? `${leagueTitle} · ${groupName.toUpperCase()}` : leagueTitle}>
-      <Text style={styles.title}>CLASSIFICA</Text>
+      <Text style={styles.title}>{t('share.standingsTitle')}</Text>
       <View style={styles.table}>
         <View style={[styles.row, styles.head]}>
           <Text style={[styles.headText, styles.pos]}>#</Text>
-          <Text style={[styles.headText, styles.team]}>SQUADRA</Text>
-          <Text style={[styles.headText, styles.num]}>G</Text>
-          <Text style={[styles.headText, styles.num]}>V</Text>
-          <Text style={[styles.headText, styles.num]}>P</Text>
-          <Text style={[styles.headText, styles.pts]}>{byWinPercentage ? 'PCT' : 'PT'}</Text>
+          <Text style={[styles.headText, styles.team]}>{t('standings.team')}</Text>
+          <Text style={[styles.headText, styles.num]}>{t('standings.played')}</Text>
+          <Text style={[styles.headText, styles.num]}>{t('standings.wins')}</Text>
+          <Text style={[styles.headText, styles.num]}>{t('standings.losses')}</Text>
+          <Text style={[styles.headText, styles.pts]}>{byWinPercentage ? t('standings.winPercentage') : t('standings.points')}</Text>
         </View>
         {standings.map((s, i) => {
           const zone = s.relegation ? colors.red : s.playoffQualified ? colors.green : s.playIn ? colors.orange : 'transparent';

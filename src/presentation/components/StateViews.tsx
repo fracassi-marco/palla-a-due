@@ -1,5 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { t } from '../../i18n';
 import { colors, fonts, radius } from '../theme';
 
 export function Loading({ label = 'Palla a due…' }: { label?: string }) {
@@ -15,10 +16,10 @@ export function ErrorView({ onRetry, message }: { onRetry: () => void; message?:
   return (
     <View style={styles.center}>
       <Ionicons name="basketball-outline" size={48} color={colors.pink} />
-      <Text style={styles.title}>FALLO DI SQUADRA!</Text>
-      <Text style={styles.label}>{message ?? 'Non riesco a caricare i dati.'}</Text>
+      <Text style={styles.title}>{t('state.errorTitle')}</Text>
+      <Text style={styles.label}>{message ?? t('state.errorMessage')}</Text>
       <Pressable style={styles.button} onPress={onRetry}>
-        <Text style={styles.buttonText}>RIPROVA</Text>
+        <Text style={styles.buttonText}>{t('state.retry')}</Text>
       </Pressable>
     </View>
   );

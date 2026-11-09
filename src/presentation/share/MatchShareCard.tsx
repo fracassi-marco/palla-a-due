@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { MatchStatus } from '../../domain/entities';
+import { t } from '../../i18n';
 import { TeamLogo } from '../components/TeamLogo';
 import { colors, fonts, radius } from '../theme';
 import { formatDayMonth, formatTime, formatWeekday } from '../theme/format';
@@ -35,8 +36,8 @@ export function MatchShareCard({ leagueTitle, status, startsAt, home, away }: Pr
       <View style={styles.scoreboard}>
         <TeamSide team={home} />
         <View style={styles.center}>
-          {played ? <Text style={styles.score}>{home.score}-{away.score}</Text> : <Text style={styles.vs}>VS</Text>}
-          <Text style={styles.state}>{status === 'live' ? '● LIVE' : status === 'finished' ? 'FINALE' : formatTime(startsAt)}</Text>
+          {played ? <Text style={styles.score}>{home.score}-{away.score}</Text> : <Text style={styles.vs}>{t('match.vs')}</Text>}
+          <Text style={styles.state}>{status === 'live' ? `● ${t('match.live')}` : status === 'finished' ? t('match.final') : formatTime(startsAt)}</Text>
           <Text style={styles.date}>{when}</Text>
         </View>
         <TeamSide team={away} />
@@ -67,7 +68,7 @@ function Performers({ performers }: { performers: Performer[] }) {
         <View key={p.name} style={styles.performer}>
           <Text style={styles.performerName} numberOfLines={1}>{p.name}</Text>
           <Text style={styles.performerStats}>
-            <Text style={styles.points}>{p.points}</Text> PT · {p.rebounds} R · {p.assists} A
+            <Text style={styles.points}>{p.points}</Text> {t('boxScore.points')} · {p.rebounds} {t('share.reboundsShort')} · {p.assists} {t('share.assistsShort')}
           </Text>
         </View>
       ))}

@@ -1,5 +1,6 @@
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { PlayoffBracket, PlayoffSeries, TeamRef } from '../../domain/entities';
+import { localize, t } from '../../i18n';
 import { useOpenTeam } from '../hooks/useOpenTeam';
 import { colors, fonts, radius } from '../theme';
 import { formatDayMonth, formatTime, formatWeekday } from '../theme/format';
@@ -27,7 +28,7 @@ export function PlayoffBracketView({ bracket }: { bracket: PlayoffBracket }) {
     >
       {bracket.rounds.map((round) => (
         <View key={round.name} style={{ width: columnWidth }}>
-          <Text style={styles.roundName}>{round.name}</Text>
+          <Text style={styles.roundName}>{localize(round.name)}</Text>
           <View style={{ height, justifyContent: 'space-around' }}>
             {round.series.map((series, i) => (series ? <SeriesCard key={series.id} series={series} /> : <PendingCard key={i} />))}
           </View>
@@ -53,7 +54,7 @@ function SeriesCard({ series }: { series: PlayoffSeries }) {
 function PendingCard() {
   return (
     <View style={[styles.card, styles.cardPending]}>
-      <Text style={styles.pendingText}>DA DEFINIRE</Text>
+      <Text style={styles.pendingText}>{t('bracket.tbd')}</Text>
     </View>
   );
 }
@@ -78,12 +79,12 @@ function TeamRow({ team, seed, wins, state }: { team: TeamRef; seed: number | nu
 }
 
 function footer(series: PlayoffSeries): string {
-  if (series.winnerId !== null) return series.bestOf === 1 ? 'CONCLUSA' : 'SERIE CONCLUSA';
-  if (series.live) return 'IN CORSO';
-  const format = series.bestOf === 1 ? 'GARA SECCA' : `AL MEGLIO DELLE ${series.bestOf}`;
+  if (series.winnerId !== null) return t(series.bestOf === 1 ? 'bracket.gameOver' : 'bracket.seriesOver');
+  if (series.live) return t('bracket.inProgress');
+  const format = series.bestOf === 1 ? t('bracket.singleGame') : t('bracket.bestOf', { n: series.bestOf });
   if (!series.nextGameAt) return format;
   const at = series.nextGameAt;
-  return `PROSSIMA ${formatWeekday(at)} ${formatDayMonth(at)} · ${formatTime(at)}`;
+  return t('bracket.next', { when: `${formatWeekday(at)} ${formatDayMonth(at)} · ${formatTime(at)}` });
 }
 
 const styles = StyleSheet.create({

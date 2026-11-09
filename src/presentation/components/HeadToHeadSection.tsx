@@ -1,8 +1,9 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { HeadToHead } from '../../application/GetHeadToHead';
 import { Match } from '../../domain/entities';
+import { t } from '../../i18n';
 import { colors, fonts, radius } from '../theme';
-import { formatDayMonth } from '../theme/format';
+import { formatDayMonthYear } from '../theme/format';
 import { SectionTitle } from './SectionTitle';
 
 interface Props {
@@ -16,10 +17,10 @@ export function HeadToHeadSection({ headToHead, homeCode, awayCode, onMatch }: P
   const { matches, homeWins, awayWins } = headToHead;
   return (
     <View>
-      <SectionTitle title="SCONTRI DIRETTI" accent={colors.pink} right={`ULTIME ${matches.length}`} />
+      <SectionTitle title={t('headToHead.title')} accent={colors.pink} right={t('headToHead.last', { n: matches.length })} />
       <View style={styles.balance}>
         <Text style={[styles.wins, homeWins > awayWins && styles.leading]}>{homeWins}</Text>
-        <Text style={styles.balanceLabel}>{homeCode} · VITTORIE · {awayCode}</Text>
+        <Text style={styles.balanceLabel}>{homeCode} · {t('headToHead.wins')} · {awayCode}</Text>
         <Text style={[styles.wins, awayWins > homeWins && styles.leading]}>{awayWins}</Text>
       </View>
       <View style={styles.list}>
@@ -27,7 +28,7 @@ export function HeadToHeadSection({ headToHead, homeCode, awayCode, onMatch }: P
           const homeWon = (m.homeScore ?? 0) > (m.awayScore ?? 0);
           return (
             <Pressable key={m.id} onPress={() => onMatch(m)} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-              <Text style={styles.date}>{formatDayMonth(m.startsAt)} {String(m.startsAt.getFullYear()).slice(2)}</Text>
+              <Text style={styles.date}>{formatDayMonthYear(m.startsAt)}</Text>
               <Text style={[styles.code, homeWon && styles.winner]} numberOfLines={1}>{m.home.code}</Text>
               <Text style={styles.score}>{m.homeScore}-{m.awayScore}</Text>
               <Text style={[styles.code, !homeWon && styles.winner]} numberOfLines={1}>{m.away.code}</Text>

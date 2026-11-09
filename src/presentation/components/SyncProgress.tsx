@@ -2,16 +2,17 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SyncPhase, SyncState } from '../../application/SyncLeague';
+import { t } from '../../i18n';
 import { colors, fonts, radius } from '../theme';
 
 const PHASE_LABEL: Record<SyncPhase, string> = {
-  calendar: 'Calendario',
-  boxScores: 'Statistiche delle partite',
-  rosters: 'Roster',
+  calendar: t('sync.phase.calendar'),
+  boxScores: t('sync.phase.boxScores'),
+  rosters: t('sync.phase.rosters'),
 };
 
 function label(state: SyncState): string {
-  const phase = state.phase ? PHASE_LABEL[state.phase] : 'Aggiornamento';
+  const phase = state.phase ? PHASE_LABEL[state.phase] : t('sync.updating');
   return state.total > 0 ? `${phase} · ${state.done}/${state.total}` : `${phase}…`;
 }
 
@@ -30,7 +31,7 @@ export function SyncBar({ state }: { state: SyncState }) {
   if (state.status !== 'running' || state.total === 0) return null;
   return (
     <View pointerEvents="none" style={[styles.bar, { paddingBottom: insets.bottom + 8 }]}>
-      <Text style={styles.barLabel}>SCARICO I DATI · {label(state).toUpperCase()}</Text>
+      <Text style={styles.barLabel}>{t('sync.downloading')} · {label(state).toUpperCase()}</Text>
       <Bar state={state} />
     </View>
   );
@@ -42,15 +43,15 @@ export function FirstSync({ state, onRetry }: { state: SyncState; onRetry: () =>
   return (
     <View style={styles.first}>
       <Ionicons name={failed ? 'basketball-outline' : 'basketball'} size={64} color={failed ? colors.pink : colors.orange} />
-      <Text style={styles.title}>{failed ? 'FALLO DI SQUADRA!' : 'PRIMO AVVIO'}</Text>
+      <Text style={styles.title}>{failed ? t('state.errorTitle') : t('sync.firstLaunch')}</Text>
       <Text style={styles.text}>
         {failed
-          ? (state.error ?? 'Non riesco a scaricare i dati.')
-          : 'Scarico il calendario del campionato: serve solo la prima volta.'}
+          ? (state.error ?? t('sync.failed'))
+          : t('sync.firstLaunchText')}
       </Text>
       {failed ? (
         <Pressable style={styles.button} onPress={onRetry}>
-          <Text style={styles.buttonText}>RIPROVA</Text>
+          <Text style={styles.buttonText}>{t('state.retry')}</Text>
         </Pressable>
       ) : (
         <View style={styles.firstProgress}>

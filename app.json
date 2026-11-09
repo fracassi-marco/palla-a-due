@@ -26,6 +26,7 @@
     "plugins": [
       "expo-font",
       "expo-image",
+      ["expo-localization", { "supportedLocales": ["it", "en"] }],
       "expo-router",
       "expo-sharing",
       "expo-sqlite"
